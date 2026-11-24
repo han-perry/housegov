@@ -1,0 +1,6 @@
+public/build/
+node_modules/
+dist/
+data/
+.env
+govtracker-old/
