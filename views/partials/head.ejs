@@ -20,7 +20,7 @@
     brand (no burger menu). Labels stay in the accessibility tree either way. %>
 <nav class="navbar navbar-expand hg-nav" aria-label="Main">
   <div class="container hg-nav-inner">
-    <a class="navbar-brand" href="<%= base %>/"><%- icon('bank2') %> HouseGov</a>
+    <a class="navbar-brand" href="<%= base %>/"><%- icon('people-fill') %> HouseGov</a>
     <ul class="navbar-nav hg-nav-main">
       <% const nav = [['/proposals','Proposals','file-earmark-text'],['/meetings','Meetings','calendar-event'],['/polls','Elections & Votes','check2-square'],['/docs','Policies','journal-text'],['/orgchart','Org Chart','diagram-3']]; %>
       <% nav.forEach(([href, label, ic]) => { const on = path.startsWith(href); %>

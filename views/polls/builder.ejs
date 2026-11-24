@@ -16,9 +16,9 @@
       <label class="form-label small" for="p-closes">Closes</label>
       <input type="datetime-local" class="form-control mb-2" id="p-closes">
       <div class="form-check"><input class="form-check-input" type="checkbox" id="p-secret" <%= hasBallots ? 'disabled' : '' %>><label class="form-check-label" for="p-secret">Secret ballot</label></div>
-      <div class="form-text mb-2">Secret: voters get a private vote ID + code by email. Public: usernames are stored with ballots (visible to the House Chair).</div>
+      <div class="form-text mb-2">Secret ballots hash votes and prevent the server from storing direct links from votes to usernames. <b>You cannot change this later.</b></div>
       <div class="form-check"><input class="form-check-input" type="checkbox" id="p-live"><label class="form-check-label" for="p-live">Show live public results</label></div>
-      <div class="form-text mt-3"><%- icon('journal-text') %> To put a policy amendment to a vote, attach it to a multiple-choice question (e.g. the Referendum template) and pick which option adopts it.</div>
+      <div class="form-text mt-3"><%- icon('journal-text') %> Tip: A multiple choice question can automatically decide to apply an amendment or policy change.</div>
     </div>
   </div>
 
@@ -31,12 +31,12 @@
         <div class="col-sm-6"><button type="button" class="template-item w-100 h-100 text-start" data-add="yesno">
           <span class="badge text-bg-light border float-end">Template</span>
           <div class="fw-medium">Referendum</div>
-          <div class="small text-secondary">Yes / No with a majority threshold, plus an optional comments box. Can decide a policy amendment.</div>
+          <div class="small text-secondary">Standard template for a full-forum vote.</div>
         </button></div>
         <div class="col-sm-6"><button type="button" class="template-item w-100 h-100 text-start" data-add="election">
           <span class="badge text-bg-light border float-end">Template</span>
           <div class="fw-medium">Officer election</div>
-          <div class="small text-secondary">Ranked-choice ballot with candidate statements and write-in</div>
+          <div class="small text-secondary">Ranked-choice ballot.</div>
         </button></div>
       </div>
       <div class="small fw-medium mb-1">Blank question</div>
@@ -45,6 +45,11 @@
         <button type="button" class="btn btn-sm btn-outline-secondary" data-add="multi"><%- icon('ui-checks') %> Multi-select</button>
         <button type="button" class="btn btn-sm btn-outline-secondary" data-add="vote"><%- icon('person-check') %> Vote (pick one)</button>
         <button type="button" class="btn btn-sm btn-outline-secondary" data-add="text"><%- icon('textarea-t') %> Free response</button>
+      </div>
+      <div class="small fw-medium mb-1 mt-3">Layout</div>
+      <div class="d-flex flex-wrap gap-1">
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-add="section"><%- icon('text-paragraph') %> Text section</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-add="divider"><%- icon('distribute-vertical') %> Divider</button>
       </div>
     </div>
     <div id="errors" class="alert alert-danger d-none"></div>
@@ -88,26 +93,30 @@
     const templates = {
       yesno: () => [
         { type: 'choice', prompt: 'Do you approve?', options: [{ id: rid(), label: 'Yes' }, { id: rid(), label: 'No' }], config: { threshold: 50, required: true } },
-        { type: 'text', prompt: 'Comments (optional)', options: [], config: { required: false } },
+        { type: 'text', prompt: 'Comments', options: [], config: { required: false } },
       ],
       election: () => [{ type: 'vote', prompt: 'Position name', options: [{ id: rid(), label: '', statement: '' }], config: { method: 'irv', writeIn: true, required: true } }],
       choice: () => [{ type: 'choice', prompt: '', options: [{ id: rid(), label: '' }], config: { required: true } }],
       multi: () => [{ type: 'multi', prompt: '', options: [{ id: rid(), label: '' }], config: { required: true } }],
       vote: () => [{ type: 'vote', prompt: '', options: [{ id: rid(), label: '', statement: '' }], config: { method: 'pick1', writeIn: false, required: true } }],
       text: () => [{ type: 'text', prompt: '', options: [], config: { required: false } }],
+      section: () => [{ type: 'section', prompt: '', description: '', options: [], config: {} }],
+      divider: () => [{ type: 'divider', prompt: '', options: [], config: {} }],
     };
     document.querySelectorAll('[data-add]').forEach((b) => b.onclick = () => {
       questions.push(...templates[b.dataset.add]()); render();
       $('questions').lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
 
-    const typeLabel = { choice: 'Multiple choice', multi: 'Multi-select', vote: 'Vote', text: 'Free response' };
+    const typeLabel = { choice: 'Multiple choice', multi: 'Multi-select', vote: 'Vote', text: 'Free response', section: 'Text section', divider: 'Divider' };
+    const isLayout = (q) => q.type === 'section' || q.type === 'divider';
 
     // A policy amendment is decided by exactly one question. Amendments already
     // used by another question in this poll are shown but disabled.
     function amendBox(q, qi) {
       if (!AMENDMENTS.length && !q.amendment_id) return '';
-      const usedBy = new Map(questions.map((x, i) => [Number(x.amendment_id), i]).filter(([id, i]) => id && i !== qi));
+      const num = (i) => questions.slice(0, i + 1).filter((x) => !isLayout(x)).length - 1; // question number, skipping layout
+      const usedBy = new Map(questions.map((x, i) => [Number(x.amendment_id), i]).filter(([id, i]) => id && i !== qi).map(([id, i]) => [id, num(i)]));
       const opts = AMENDMENTS.map((a) => {
         const other = usedBy.get(a.id);
         return `<option value="${a.id}" ${Number(q.amendment_id) === a.id ? 'selected' : ''} ${other !== undefined ? 'disabled' : ''}>#${a.id} ${esc(a.title)} (${esc(a.doc_title)})${other !== undefined ? ` · used by question ${other + 1}` : ''}</option>`;
@@ -143,16 +152,20 @@
 
     function render() {
       $('questions').innerHTML = questions.map((q, qi) => `
-        <div class="card q-card mb-3" data-qi="${qi}">
+        <div class="card q-card mb-3 ${isLayout(q) ? 'q-layout' : ''}" data-qi="${qi}">
           <div class="card-body">
-            <div class="d-flex justify-content-between align-items-center mb-2">
+            <div class="d-flex justify-content-between align-items-center ${q.type === 'divider' ? '' : 'mb-2'}">
               <span class="badge text-bg-light border">${typeLabel[q.type]}</span>
+              ${q.type === 'divider' ? '<div class="poll-divider flex-grow-1 mx-3 my-0" aria-hidden="true"></div>' : ''}
               <div class="btn-group btn-group-sm">
                 <button class="btn btn-outline-secondary" data-act="up" ${qi === 0 ? 'disabled' : ''} aria-label="Move question up" title="Move up"><%- icon('arrow-up') %></button>
                 <button class="btn btn-outline-secondary" data-act="down" ${qi === questions.length - 1 ? 'disabled' : ''} aria-label="Move question down" title="Move down"><%- icon('arrow-down') %></button>
-                <button class="btn btn-outline-danger" data-act="del" aria-label="Remove question" title="Remove question"><%- icon('trash') %><span class="hg-label">Remove</span></button>
+                <button class="btn btn-outline-danger" data-act="del" aria-label="Remove ${isLayout(q) ? typeLabel[q.type].toLowerCase() : 'question'}" title="Remove"><%- icon('trash') %><span class="hg-label">Remove</span></button>
               </div>
             </div>
+            ${q.type === 'divider' ? '' : q.type === 'section' ? `
+            <input class="form-control mb-1 fw-medium" data-f="prompt" placeholder="Heading (optional, markdown text)" value="${esc(q.prompt)}" aria-label="Section heading">
+            <textarea class="form-control form-control-sm" data-f="description" rows="3" placeholder="Text shown to voters (markdown text)" aria-label="Section text">${esc(q.description || '')}</textarea>` : `
             <input class="form-control mb-1 fw-medium" data-f="prompt" placeholder="Question / position (markdown text)" value="${esc(q.prompt)}">
             <textarea class="form-control form-control-sm mb-2" data-f="description" rows="${q.description ? 3 : 1}" placeholder="Description (optional, markdown text)">${esc(q.description || '')}</textarea>
             ${q.type === 'text' ? '' : `
@@ -176,7 +189,7 @@
                 <div class="col-auto ms-2" title="${q.type === 'multi' ? 'Each option needs this share of ballots to be approved' : 'The leading option must reach this share of ballots to carry'}">${q.type === 'multi' ? 'Approval threshold per option' : 'Leader needs'} <input class="form-control form-control-sm d-inline-block" style="width:5rem" data-c="threshold" type="number" min="0" max="100" step="0.1" value="${q.config.threshold ?? ''}" placeholder="—">%</div>
               </div>`}
             ${q.type === 'choice' ? amendBox(q, qi) : ''}
-            <div class="form-check mt-2 small"><input class="form-check-input" type="checkbox" data-c="required" id="rq${qi}" ${q.config.required !== false ? 'checked' : ''}><label class="form-check-label" for="rq${qi}">Required</label></div>
+            <div class="form-check mt-2 small"><input class="form-check-input" type="checkbox" data-c="required" id="rq${qi}" ${q.config.required !== false ? 'checked' : ''}><label class="form-check-label" for="rq${qi}">Required</label></div>`}
           </div>
         </div>`).join('') || '<p class="text-secondary">No questions yet. Start from a template or add a blank question below.</p>';
     }

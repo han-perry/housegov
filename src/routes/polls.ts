@@ -88,21 +88,30 @@ function cleanPayload(b: Partial<BuilderPayload>) {
   if (!title) errors.push("Title is required.");
   if (!opens || !closes) errors.push("Opening and closing times are required.");
   else if (closes <= opens) errors.push("The poll must close after it opens.");
-  const qs = (Array.isArray(b.questions) ? b.questions : []).map((q, i) => {
-    const type = (["choice", "multi", "vote", "text"] as const).includes(q.type) ? q.type : "choice";
+  let n = 0;
+  const qs = (Array.isArray(b.questions) ? b.questions : []).map((q) => {
+    const type = (["choice", "multi", "vote", "text", "divider", "section"] as const).includes(q.type) ? q.type : "choice";
+    // Layout items: a divider has nothing in it; a text section has a heading and/or markdown text.
+    if (type === "divider" || type === "section") {
+      const prompt = type === "section" ? str(q.prompt) : "";
+      const description = type === "section" ? String(q.description ?? "").trim().slice(0, 10000) : "";
+      if (type === "section" && !prompt && !description) errors.push(`The text section after ${n ? `question ${n}` : "the start"} is empty. Add a heading or text, or remove it.`);
+      return { id: q.id ? Number(q.id) : undefined, type, prompt, description, options: [] as Question["options"], config: {} as Question["config"], amendment_id: null };
+    }
+    n++;
     const options = (Array.isArray(q.options) ? q.options : [])
       .map((o) => ({ id: str(o.id) || crypto.randomBytes(4).toString("hex"), label: str(o.label), statement: str(o.statement) || undefined }))
       .filter((o) => o.label);
     const threshold = q.config?.threshold === null || q.config?.threshold === undefined || String(q.config.threshold) === "" ? null : Number(q.config.threshold);
-    if (!str(q.prompt)) errors.push(`Question ${i + 1} needs a prompt.`);
-    if (type !== "text" && options.length < 1) errors.push(`Question ${i + 1} needs at least one option.`);
-    if (threshold !== null && (Number.isNaN(threshold) || threshold < 0 || threshold > 100)) errors.push(`Question ${i + 1}: threshold must be 0–100%.`);
+    if (!str(q.prompt)) errors.push(`Question ${n} needs a prompt.`);
+    if (type !== "text" && options.length < 1) errors.push(`Question ${n} needs at least one option.`);
+    if (threshold !== null && (Number.isNaN(threshold) || threshold < 0 || threshold > 100)) errors.push(`Question ${n}: threshold must be 0–100%.`);
     // A policy amendment is decided by one multiple-choice question, adopted
     // if the chosen option wins.
     const amendmentId = q.amendment_id ? Number(q.amendment_id) : null;
     const adopt = amendmentId ? str(q.config?.adopt) : "";
-    if (amendmentId && type !== "choice") errors.push(`Question ${i + 1}: only multiple-choice questions can decide an amendment.`);
-    else if (amendmentId && !options.some((o) => o.id === adopt)) errors.push(`Question ${i + 1}: choose which option adopts the amendment.`);
+    if (amendmentId && type !== "choice") errors.push(`Question ${n}: only multiple-choice questions can decide an amendment.`);
+    else if (amendmentId && !options.some((o) => o.id === adopt)) errors.push(`Question ${n}: choose which option adopts the amendment.`);
     return {
       id: q.id ? Number(q.id) : undefined,
       type,
@@ -119,7 +128,7 @@ function cleanPayload(b: Partial<BuilderPayload>) {
       amendment_id: type === "choice" ? amendmentId : null,
     };
   });
-  if (!qs.length) errors.push("Add at least one question.");
+  if (!qs.some((q) => q.type !== "divider" && q.type !== "section")) errors.push("Add at least one question.");
   const used = qs.map((q) => q.amendment_id).filter((x): x is number => !!x);
   if (new Set(used).size !== used.length) errors.push("Each amendment can be decided by only one question. Split it into separate amendments, or decide it in one question.");
   return {

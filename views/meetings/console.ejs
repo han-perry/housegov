@@ -8,7 +8,7 @@
     <div class="btn-group btn-group-sm">
       <a class="btn btn-outline-secondary" href="<%= base %>/meetings/<%= m.id %>/slides" target="_blank" aria-label="Open projector view (new tab)" title="Open projector view (new tab)"><%- icon('projector') %><span class="hg-label">Projector view</span></a>
       <a class="btn btn-outline-secondary" href="<%= base %>/meetings/<%= m.id %>/manage" aria-label="Edit agenda" title="Edit agenda"><%- icon('list-ol') %><span class="hg-label">Edit agenda</span></a>
-      <button class="btn btn-outline-secondary d-none" id="unstart" aria-label="Mark as not started" title="Started by accident? Put the meeting back to not started"><%- icon('pause-circle') %><span class="hg-label">Not started</span></button>
+      <button class="btn btn-outline-secondary d-none" id="unstart" aria-label="Mark as Draft" title="Started by accident? Put the meeting back to drafts"><%- icon('pause-circle') %><span class="hg-label">Convert to draft</span></button>
     </div>
     <form method="post" action="<%= base %>/meetings/<%= m.id %>/adjourn" onsubmit="return confirm('Adjourn the meeting? Tabled proposals go back to the open pool.')"><button class="btn btn-danger btn-sm" aria-label="Adjourn meeting" title="Adjourn meeting"><%- icon('door-closed') %><span class="hg-label">Adjourn</span></button></form>
   </div>
@@ -17,7 +17,7 @@
 <div id="start-banner" class="alert alert-warning d-flex flex-wrap align-items-center gap-3 <%= m.status === 'live' ? 'd-none' : '' %>">
   <div class="flex-grow-1">
     <div class="fw-semibold"><%- icon('hourglass-split') %> The meeting hasn't started</div>
-    <div class="small">Projectors and phones show the title slide. You can click through slides here to rehearse; nobody else's screen moves until you start.</div>
+    <div class="small">Slides are not synced with the console and live view.</div>
   </div>
   <button class="btn btn-dark" id="start"><%- icon('play-fill') %> Start meeting</button>
 </div>
@@ -35,7 +35,7 @@
       </div>
     </div>
     <div class="console-preview mb-1" id="preview"></div>
-    <div class="meta mb-2" id="preview-hint">Long slide? Use the <%- icon('chevron-down') %> scroll buttons or the ↓/↑ keys to scroll it on the projector. ←/→ change slides.</div>
+    <div class="meta mb-2" id="preview-hint">Use the <%- icon('chevron-down') %> scroll buttons or the ↓/↑ keys to scroll long proposals on the projector. ←/→ change slides.</div>
 
     <div id="proposal-tools" class="card card-body mb-3 d-none">
       <div class="d-flex flex-wrap gap-2 align-items-center">
@@ -62,7 +62,7 @@
     <div class="card card-body">
       <h2 class="h6">Ad hoc vote</h2>
       <div id="adhoc-idle" class="input-group input-group-sm">
-        <input id="adhoc-q" class="form-control" placeholder="Question (e.g. Motion to extend discussion 5 minutes)">
+        <input id="adhoc-q" class="form-control" placeholder="Question (e.g. Motion to table)">
         <button class="btn btn-dark live-only" id="adhoc-open"><%- icon('megaphone') %> Call vote</button>
       </div>
       <div id="adhoc-live" class="d-none">
@@ -99,7 +99,7 @@
       $('unstart').classList.toggle('d-none', !live());
       const b = $('status-badge');
       b.className = 'badge align-middle fs-6 ' + (live() ? 'text-bg-danger' : 'text-bg-secondary');
-      b.innerHTML = live() ? '<%- icon('broadcast') %> Live' : 'Rehearsal';
+      b.innerHTML = live() ? '<%- icon('broadcast') %> Live' : 'Draft';
       document.querySelectorAll('.live-only').forEach((el) => { el.disabled = !live(); el.title = live() ? '' : 'Start the meeting first'; });
       $('preview-hint').classList.toggle('opacity-50', !live());
     }

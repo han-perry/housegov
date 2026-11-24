@@ -1,6 +1,6 @@
 <%- include('../partials/head', { useEditor: true }) %>
 <h1 class="h4"><%= can.text ? 'Edit proposal' : 'Edit funding for proposal' %> #<%= p.id %>: <%= p.title %></h1>
-<p class="text-secondary small">Changes are logged in the proposal's history. The original submitted official text is kept.</p>
+<p class="text-secondary small">Changes are logged in the proposal's history.</p>
 <form method="post" action="<%= base %>/proposals/<%= p.id %>/edit" class="card card-body">
   <input type="hidden" name="return" value="<%= returnTo %>">
   <% if (can.funding) { %>
@@ -29,7 +29,7 @@
   <textarea name="final_text" hidden><%= p.final_text %></textarea>
   <div data-md-editor="final_text" data-height="420px"></div>
   <% } else if (p.funding) { %>
-    <p class="small text-secondary mb-0">The funding was requested as $<%= p.funding.amount %>. You can change the amount and the account; the summary and official text are edited by the House Chair.</p>
+    <p class="small text-secondary mb-0">The funding was requested as $<%= p.funding.amount %>. You can only change the amount and the account.</p>
   <% } %>
   <div class="mt-3"><button class="btn btn-dark"><%- icon('check-lg') %> Save changes</button> <a href="<%= url(returnTo) %>" class="btn btn-link">Cancel</a></div>
 </form>

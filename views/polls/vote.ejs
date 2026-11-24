@@ -1,12 +1,12 @@
 <%- include('../partials/head') %>
-<div style="max-width: 46rem" class="mx-auto">
+<div style="max-width: 66rem" class="mx-auto">
   <div class="d-flex justify-content-between align-items-start">
     <div>
       <h1 class="h3 mb-1"><%= poll.title %></h1>
       <div class="meta">
-        <%= poll.secret ? 'Secret ballot' : 'Public ballot: the House Chair can see who voted for what' %> ·
-        <% if (poll.status === 'open') { %>closes <%= fmtDate(poll.closes_at) %> (<span data-countdown="<%= new Date(poll.closes_at).toISOString() %>" data-style="inline"></span>)
-        <% } else if (poll.status === 'upcoming') { %>opens <%= fmtDate(poll.opens_at) %>
+        <%= poll.secret ? 'Secret ballot' : 'Public ballot' %> |
+        <% if (poll.status === 'open') { %>closes <%= fmtDate(poll.closes_at) %> (<span data-countdown="<%= new Date(poll.closes_at).toISOString() %>" data-style="inline" data-done="0m 00s · voting has closed, reload the page"></span>)
+        <% } else if (poll.status === 'upcoming') { %>opens <%= fmtDate(poll.opens_at) %> (in <span data-countdown="<%= new Date(poll.opens_at).toISOString() %>" data-style="inline" data-done="0m 00s · reload the page to vote"></span>)
         <% } else { %>closed <%= fmtDate(poll.closes_at) %><% } %>
       </div>
     </div>
@@ -40,69 +40,74 @@
     <div id="receipt" class="alert alert-success mt-3 d-none"></div>
 
     <form id="ballot" class="mt-3 <%= state === 'secret-voted' ? 'd-none' : '' %>" onsubmit="return false">
-      <% poll.questions.forEach((q, qi) => { %>
-        <div class="card mb-3 question" data-qid="<%= q.id %>" data-type="<%= q.type %>" data-method="<%= q.config.method || '' %>">
-          <div class="card-body">
-            <div class="d-flex justify-content-between">
-              <h2 class="h6 content-serif mb-2"><%= qi + 1 %>. <%- mdInline(q.prompt) %><%= q.config.required !== false && q.type !== 'text' ? '' : ' (optional)' %></h2>
-              <% if (q.config.threshold !== null && q.config.threshold !== undefined) { %><span class="badge text-bg-light border align-self-start">Requires <%= q.config.threshold %>%</span><% } %>
+      <% let qn = 0; poll.questions.forEach((q) => { %>
+        <% if (q.type === 'divider') { %><div class="poll-divider" role="separator"></div><% return; } %>
+        <% if (q.type === 'section') { %>
+          <section class="poll-section content-serif">
+            <% if (q.prompt) { %><h2 class="h5 mb-2"><%- mdInline(q.prompt) %></h2><% } %>
+            <% if (q.description) { %><div class="question-desc"><%- md(q.description) %></div><% } %>
+          </section>
+        <% return; } qn++; %>
+        <div class="question" data-qid="<%= q.id %>" data-type="<%= q.type %>" data-method="<%= q.config.method || '' %>">
+          <div class="d-flex justify-content-between">
+            <h2 class="h6 content-serif mb-2"><%= qn %>. <%- mdInline(q.prompt) %><%= q.config.required !== false && q.type !== 'text' ? '' : ' (optional)' %></h2>
+            <% if (q.config.threshold !== null && q.config.threshold !== undefined) { %><span class="badge text-bg-light border align-self-start">Requires <%= q.config.threshold %>%</span><% } %>
+          </div>
+          <% if (q.description) { %><div class="question-desc content-serif"><%- md(q.description) %></div><% } %>
+          <% if (q.amendment) { const adopt = (q.options.find(o => o.id === q.config.adopt) || {}).label; const t = q.config.threshold; %>
+            <div class="amend-note small mb-2">
+              <%- icon('journal-text') %> This question decides
+              <a href="<%= base %>/docs/amendments/<%= q.amendment.id %>" target="_blank"><%= q.amendment.title %></a>
+              to <a href="<%= base %>/docs/<%= q.amendment.doc_slug %>" target="_blank"><%= q.amendment.doc_title %></a>.
+              It's applied if <b><%= adopt %></b> <%= t !== null && t !== undefined ? `leads with at least ${t}%` : 'gets more than half' %> of the answers to this question.
             </div>
-            <% if (q.description) { %><div class="question-desc content-serif"><%- md(q.description) %></div><% } %>
-            <% if (q.amendment) { const adopt = (q.options.find(o => o.id === q.config.adopt) || {}).label; const t = q.config.threshold; %>
-              <div class="amend-note small mb-2">
-                <%- icon('journal-text') %> This question decides
-                <a href="<%= base %>/docs/amendments/<%= q.amendment.id %>" target="_blank"><%= q.amendment.title %></a>
-                to <a href="<%= base %>/docs/<%= q.amendment.doc_slug %>" target="_blank"><%= q.amendment.doc_title %></a>.
-                It's applied if <b><%= adopt %></b> <%= t !== null && t !== undefined ? `leads with at least ${t}%` : 'gets more than half' %> of the answers to this question.
+          <% } %>
+
+          <% if (q.type === 'text') { %>
+            <textarea class="form-control" rows="3" data-text></textarea>
+
+          <% } else if (q.type === 'vote' && q.config.method === 'irv') { %>
+            <p class="small text-secondary mb-2">Rank candidates in order of preference (1 = first choice). You can leave any unranked.</p>
+            <% q.options.forEach(o => { %>
+              <div class="d-flex align-items-start gap-2 mb-2">
+                <select class="form-select form-select-sm rank-select" data-rank="<%= o.id %>" aria-label="Rank for <%= o.label %>">
+                  <option value="">–</option><% for (let r = 1; r <= q.options.length + (q.config.writeIn ? 1 : 0); r++) { %><option value="<%= r %>"><%= r %></option><% } %>
+                </select>
+                <div class="flex-grow-1">
+                  <% if (o.statement) { %><details><summary class="fw-medium"><%= o.label %></summary><div class="candidate-statement"><%- md(o.statement) %></div></details>
+                  <% } else { %><span class="fw-medium"><%= o.label %></span><% } %>
+                </div>
+              </div>
+            <% }) %>
+            <% if (q.config.writeIn) { %>
+              <div class="d-flex align-items-center gap-2">
+                <select class="form-select form-select-sm rank-select" data-rank-writein aria-label="Rank for write-in">
+                  <option value="">–</option><% for (let r = 1; r <= q.options.length + 1; r++) { %><option value="<%= r %>"><%= r %></option><% } %>
+                </select>
+                <input class="form-control form-control-sm" data-writein placeholder="Write-in candidate">
               </div>
             <% } %>
 
-            <% if (q.type === 'text') { %>
-              <textarea class="form-control" rows="3" data-text></textarea>
-
-            <% } else if (q.type === 'vote' && q.config.method === 'irv') { %>
-              <p class="small text-secondary mb-2">Rank candidates in order of preference (1 = first choice). You can leave any unranked.</p>
-              <% q.options.forEach(o => { %>
-                <div class="d-flex align-items-start gap-2 mb-2">
-                  <select class="form-select form-select-sm rank-select" data-rank="<%= o.id %>" aria-label="Rank for <%= o.label %>">
-                    <option value="">–</option><% for (let r = 1; r <= q.options.length + (q.config.writeIn ? 1 : 0); r++) { %><option value="<%= r %>"><%= r %></option><% } %>
-                  </select>
-                  <div class="flex-grow-1">
-                    <% if (o.statement) { %><details><summary class="fw-medium"><%= o.label %></summary><div class="candidate-statement"><%- md(o.statement) %></div></details>
-                    <% } else { %><span class="fw-medium"><%= o.label %></span><% } %>
-                  </div>
-                </div>
-              <% }) %>
-              <% if (q.config.writeIn) { %>
-                <div class="d-flex align-items-center gap-2">
-                  <select class="form-select form-select-sm rank-select" data-rank-writein aria-label="Rank for write-in">
-                    <option value="">–</option><% for (let r = 1; r <= q.options.length + 1; r++) { %><option value="<%= r %>"><%= r %></option><% } %>
-                  </select>
-                  <input class="form-control form-control-sm" data-writein placeholder="Write-in candidate">
-                </div>
-              <% } %>
-
-            <% } else { const multi = q.type === 'multi'; %>
-              <% q.options.forEach(o => { %>
-                <div class="form-check mb-1">
-                  <input class="form-check-input" type="<%= multi ? 'checkbox' : 'radio' %>" name="q<%= q.id %>" value="<%= o.id %>" id="o<%= q.id %>-<%= o.id %>">
-                  <label class="form-check-label w-100" for="o<%= q.id %>-<%= o.id %>">
-                    <% if (o.statement) { %><details onclick="event.stopPropagation()"><summary class="fw-medium"><%= o.label %></summary><div class="candidate-statement"><%- md(o.statement) %></div></details>
-                    <% } else { %><%= o.label %><% } %>
-                  </label>
-                </div>
-              <% }) %>
-              <% if (q.config.writeIn && !multi) { %>
-                <div class="form-check d-flex align-items-center gap-2">
-                  <input class="form-check-input" type="radio" name="q<%= q.id %>" value="__writein" id="o<%= q.id %>-wi">
-                  <input class="form-control form-control-sm" data-writein placeholder="Write-in" onfocus="document.getElementById('o<%= q.id %>-wi').checked = true">
-                </div>
-              <% } %>
-              <% if (!multi) { %>
-                <button type="button" class="btn btn-link btn-sm px-0 text-secondary" data-clear="q<%= q.id %>"><%- icon('x-circle') %> Clear selection</button>
-              <% } %>
+          <% } else { const multi = q.type === 'multi'; %>
+            <% q.options.forEach(o => { %>
+              <div class="form-check mb-1">
+                <input class="form-check-input" type="<%= multi ? 'checkbox' : 'radio' %>" name="q<%= q.id %>" value="<%= o.id %>" id="o<%= q.id %>-<%= o.id %>">
+                <label class="form-check-label w-100" for="o<%= q.id %>-<%= o.id %>">
+                  <% if (o.statement) { %><details onclick="event.stopPropagation()"><summary class="fw-medium"><%= o.label %></summary><div class="candidate-statement"><%- md(o.statement) %></div></details>
+                  <% } else { %><%= o.label %><% } %>
+                </label>
+              </div>
+            <% }) %>
+            <% if (q.config.writeIn && !multi) { %>
+              <div class="form-check d-flex align-items-center gap-2">
+                <input class="form-check-input" type="radio" name="q<%= q.id %>" value="__writein" id="o<%= q.id %>-wi">
+                <input class="form-control form-control-sm" data-writein placeholder="Write-in" onfocus="document.getElementById('o<%= q.id %>-wi').checked = true">
+              </div>
             <% } %>
-          </div>
+            <% if (!multi) { %>
+              <button type="button" class="btn btn-link btn-sm px-0 text-secondary" data-clear="q<%= q.id %>"><%- icon('x-circle') %> Clear selection</button>
+            <% } %>
+          <% } %>
         </div>
       <% }) %>
 

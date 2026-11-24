@@ -118,6 +118,28 @@ export function commit(slug: string, content: string, opts: { author: string; me
   return withLock(slug, () => commitUnlocked(slug, content, opts.author, opts.message));
 }
 
+/**
+ * Restore an old version: a new commit whose content is the document as of
+ * `rev`. History is kept (nothing is rewritten). `expectedHead` is the version
+ * the user was looking at; if the document moved since, nothing is committed,
+ * so a change someone just made can't be thrown away unseen.
+ */
+export function restoreVersion(
+  slug: string,
+  rev: string,
+  opts: { author: string; reason: string; expectedHead: string }
+): Promise<{ ok: true; sha: string } | { ok: false; reason: string }> {
+  return withLock(slug, async () => {
+    const current = await head(slug);
+    if (current !== opts.expectedHead) return { ok: false as const, reason: "The document changed while you were looking at this page. Review the latest history and try again." };
+    const full = (await git(slug, ["rev-parse", "--verify", `${rev}^{commit}`])).trim();
+    const content = await read(slug, full);
+    if (normalize(content) === normalize(await read(slug, "HEAD"))) return { ok: false as const, reason: "That version is identical to the current document." };
+    const message = `Restore version ${full.slice(0, 7)}: ${opts.reason}\n\nRestored by ${opts.author}. Changes made after ${full.slice(0, 7)} are undone; they stay in the history.`;
+    return { ok: true as const, sha: await commitUnlocked(slug, content, opts.author, message) };
+  });
+}
+
 export function unifiedDiff(oldText: string, newText: string, label = FILE): string {
   return Diff.createTwoFilesPatch(`a/${label}`, `b/${label}`, normalize(oldText), normalize(newText));
 }

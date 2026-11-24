@@ -5,6 +5,7 @@ import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { config, withBase } from "./config";
 import { pool, migrate } from "./db";
+import * as amendmentClaims from "./services/amendments";
 import { attachUser } from "./auth";
 import { GOVPERMS } from "./auth/permissions";
 import * as realtime from "./realtime";
@@ -112,6 +113,7 @@ site.use("/meetings", meetingsRouter);
 site.use("/polls", pollsRouter);
 site.use("/docs", docsRouter);
 site.use("/orgchart", orgchartRouter);
+site.get("/attributions", (_req, res) => res.render("attributions", { title: "Attributions" }));
 if (config.devAuth) site.use("/dev", devRouter);
 
 site.use((req, res) => res.status(404).render("error", { title: "Not found", message: "That page doesn't exist." }));
@@ -136,6 +138,8 @@ realtime.init(server, sessionMiddleware);
 
 async function main() {
   await migrate();
+  await amendmentClaims.purgeEmptyDrafts();
+  setInterval(() => amendmentClaims.purgeEmptyDrafts().catch((e) => console.error("[amendments] purge failed", e)), 3600_000).unref();
   await seedIfEmpty();
   // Apply amendments / lock results for polls whose deadline has passed.
   setInterval(() => void polls.finalizeDue(), 30_000).unref();

@@ -109,7 +109,7 @@ export async function seedIfEmpty(): Promise<void> {
     JSON.stringify([{ id: "yes", label: "Yes" }, { id: "no", label: "No" }]),
     JSON.stringify({ threshold: 66.7, required: true }),
   ]);
-  await db.run("INSERT INTO poll_questions(poll_id,sort,type,prompt,options,config) VALUES ($1,1,'text','Comments (optional)','[]','{\"required\":false}')", [ref.rows[0].id]);
+  await db.run("INSERT INTO poll_questions(poll_id,sort,type,prompt,options,config) VALUES ($1,1,'text','Comments','[]','{\"required\":false}')", [ref.rows[0].id]);
 
   const el = await db.run(
     "INSERT INTO polls(title,description,secret,show_live_results,opens_at,closes_at,created_by) VALUES ($1,$2,true,false,$3,$4,'perryh') RETURNING id",

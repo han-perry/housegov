@@ -1,7 +1,7 @@
 import * as db from "../db";
 import * as ballots from "./ballots";
 import * as govdocs from "./govdocs";
-import { amendmentOutcome, tallyPoll, WRITE_IN, type Answer, type Question } from "./tally";
+import { amendmentOutcome, isLayout, tallyPoll, WRITE_IN, type Answer, type Question } from "./tally";
 
 export type PollStatus = "upcoming" | "open" | "closed";
 
@@ -82,6 +82,7 @@ export function validateAnswers(poll: Poll, raw: Record<string, unknown> | undef
   const answers: Record<string, Answer> = {};
   const errors: string[] = [];
   for (const q of poll.questions) {
+    if (isLayout(q)) continue;
     const a = raw?.[String(q.id)];
     const ids = new Set(q.options.map((o) => o.id));
     const required = q.config.required !== false && q.type !== "text";

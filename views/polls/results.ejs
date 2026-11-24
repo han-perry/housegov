@@ -2,7 +2,7 @@
 <%
   // Free-text answers are left out of the ledger: they're long, and writing
   // style could identify a voter. Poll admins read them in the results above.
-  const ledgerQs = poll.questions.filter(q => q.type !== 'text');
+  const ledgerQs = poll.questions.filter(q => !['text', 'divider', 'section'].includes(q.type));
   const label = (q, id) => typeof id === 'string' && id.startsWith('writein:') ? id.slice(8) + ' (write-in)' : (q.options.find(o => o.id === id) || {}).label || id;
   const summarize = (q, a) => {
     if (a === undefined || a === null) return '';

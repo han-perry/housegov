@@ -15,7 +15,7 @@
   <div class="col-lg-5">
     <% if (myDrafts.length) { %>
       <h2 class="h6">My amendment drafts</h2>
-      <ul class="list-unstyled"><% myDrafts.forEach(a => { %><li><a href="<%= base %>/docs/amendments/<%= a.id %>"><%= a.title %></a> <span class="meta"><%= a.doc_slug %> · <%= a.status %></span></li><% }) %></ul>
+      <ul class="list-unstyled"><% myDrafts.forEach(a => { %><li><a href="<%= base %>/docs/amendments/<%= a.id %>"><%= a.title || 'Untitled amendment' %></a> <span class="meta"><%= a.doc_slug %> · <%= a.status %></span></li><% }) %></ul>
     <% } %>
     <h2 class="h6 mt-3">Pending amendments</h2>
     <ul class="list-unstyled">
@@ -24,4 +24,17 @@
     </ul>
   </div>
 </div>
+<% if (deleted.length) { %>
+  <details class="mt-4 small">
+    <summary class="text-secondary">Deleted documents (<%= deleted.length %>)</summary>
+    <ul class="list-unstyled mt-2">
+      <% deleted.forEach(d => { %>
+        <li class="d-flex align-items-center gap-2 mb-1">
+          <span><%= d.title %> <span class="meta">(<%= d.slug %>) · deleted <%= fmtDate(d.deleted_at, { dateOnly: true }) %> by <%= d.deleted_by %></span></span>
+          <form method="post" action="<%= base %>/docs/<%= d.slug %>/undelete"><button class="btn btn-sm btn-outline-secondary py-0" aria-label="Restore <%= d.title %>" title="Restore document"><%- icon('arrow-counterclockwise') %><span class="hg-label">Restore</span></button></form>
+        </li>
+      <% }) %>
+    </ul>
+  </details>
+<% } %>
 <%- include('../partials/foot') %>

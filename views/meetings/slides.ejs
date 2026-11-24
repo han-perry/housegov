@@ -23,9 +23,9 @@
     .slide-fulltext h3 { font-size: .75em; text-transform: uppercase; letter-spacing: .05em; color: #71717a; }
     .slide-fulltext { font-size: .8em; }
     .slide-decision { font-family: "IBM Plex Sans", sans-serif; color: #166534; }
-    .qr { position: fixed; right: 14px; bottom: 14px; z-index: 30; background: #fff; padding: 6px; border-radius: 6px; box-shadow: 0 1px 4px #0003; text-align: center; font: 11px "IBM Plex Sans", sans-serif; color: #3f3f46; }
+    .qr { position: fixed; right: 14px; top: 14px; z-index: 30; background: #fff; padding: 6px; border-radius: 6px; box-shadow: 0 1px 4px #0003; text-align: center; font: 11px "IBM Plex Sans", sans-serif; color: #3f3f46; }
     .qr img { width: 110px; height: 110px; display: block; margin: 0 auto; }
-    .qr .short-url { font-size: 13px; margin-top: 3px; color: #18181b; }
+    .qr .short-url { font-size: 10px; margin-top: 3px; color: #18181b; }
     .qr .short-url b { font-family: "IBM Plex Mono", ui-monospace, monospace; font-weight: 600; }
     .adhoc { position: fixed; left: 50%; transform: translateX(-50%); bottom: 18px; z-index: 30; background: #18181b; color: #fff; border-radius: 10px; padding: 12px 22px; font: 20px "IBM Plex Sans", sans-serif; display: none; }
     .adhoc b { font-size: 26px; margin: 0 .4em; }
@@ -38,7 +38,7 @@
 </head>
 <body>
   <div class="reveal"><div class="slides" id="slides"></div></div>
-  <div class="qr"><img src="<%= base %>/meetings/<%= m.id %>/qr.svg" alt="QR code for live view">Scan to follow &amp; vote<div class="short-url">or go to <b><%= shortLive %></b></div></div>
+  <div class="qr"><img src="<%= base %>/meetings/<%= m.id %>/qr.svg" alt="QR code for live view">Scan to follow &amp; vote<div class="short-url"><b><%= shortLive %></b></div></div>
   <div class="adhoc" id="adhoc"></div>
   <div class="more" id="more"><span>▼ continues below</span></div>
 

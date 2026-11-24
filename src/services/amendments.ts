@@ -5,6 +5,7 @@
  * indexes in schema.sql back this up against races.
  */
 import * as db from "../db";
+import type { Row } from "../db";
 import * as govdocs from "./govdocs";
 
 const HANDED_TO_FORUM = "MOVED TO FULL FORUM";
@@ -14,7 +15,7 @@ export class AmendmentUnavailableError extends Error {}
 /** Amendments this poll's questions can carry (including the ones they already have). */
 export function pollChoices(pollId: number | null) {
   return db.all(
-    `SELECT a.id, a.title, a.doc_slug, a.status, d.title AS doc_title FROM amendments a JOIN docs d ON d.slug = a.doc_slug
+    `SELECT a.id, COALESCE(NULLIF(a.title, ''), 'Untitled amendment') AS title, a.doc_slug, a.status, d.title AS doc_title FROM amendments a JOIN docs d ON d.slug = a.doc_slug
      WHERE EXISTS (SELECT 1 FROM poll_questions q WHERE q.amendment_id = a.id AND q.poll_id = $1) OR (
        a.status IN ('draft','submitted','conflict')
        AND NOT EXISTS (SELECT 1 FROM poll_questions q WHERE q.amendment_id = a.id AND q.poll_id IS DISTINCT FROM $1)
@@ -27,7 +28,7 @@ export function pollChoices(pollId: number | null) {
 
 /** Why this poll can't take the amendment, or null if it can. */
 export async function pollClaimError(amendmentId: number, pollId: number | null): Promise<string | null> {
-  const a = await db.get("SELECT id, status FROM amendments WHERE id=$1", [amendmentId]);
+  const a = await db.get("SELECT * FROM amendments WHERE id=$1", [amendmentId]);
   if (!a) return "That amendment doesn't exist.";
   const otherPoll = await db.get(
     "SELECT p.id, p.title FROM poll_questions q JOIN polls p ON p.id = q.poll_id WHERE q.amendment_id=$1 AND p.id IS DISTINCT FROM $2",
@@ -41,6 +42,7 @@ export async function pollClaimError(amendmentId: number, pollId: number | null)
   );
   if (proposal) return `Amendment #${amendmentId} is attached to proposal #${proposal.id}. Move that proposal to full forum first.`;
   if (!["draft", "submitted", "conflict"].includes(a.status)) return `Amendment #${amendmentId} has already been ${a.status}.`;
+  if (a.status === "draft") return readyError(a);
   return null;
 }
 
@@ -62,4 +64,58 @@ export async function releaseIfUnclaimed(amendmentId: number | null | undefined)
        AND NOT EXISTS (SELECT 1 FROM proposal_attachments WHERE amendment_id=$1)`,
     [amendmentId]
   );
+}
+
+/** True if the draft's text differs from the document version it was started from. */
+export async function hasChanges(a: Row): Promise<boolean> {
+  return govdocs.normalize(a.content) !== govdocs.normalize(await govdocs.read(a.doc_slug, a.base_commit));
+}
+
+/**
+ * A title that says nothing about the change: blank, the document's name, or
+ * a stock phrase like "Amend Constitution". People must name what they change.
+ */
+export function isPlaceholderTitle(title: string | null | undefined, docTitle = ""): boolean {
+  const t = String(title ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+  if (t.length < 3) return true;
+  const d = docTitle.trim().toLowerCase().replace(/\s+/g, " ");
+  const stock = ["amendment", "untitled", "untitled amendment", "edit", "edits", "change", "changes", "update", "draft", "test"];
+  const forDoc = d ? [d, `amend ${d}`, `amend the ${d}`, `amendment to ${d}`, `amendment to the ${d}`, `edit ${d}`, `edit to ${d}`, `update ${d}`, `custodial edit to ${d}`] : [];
+  return stock.includes(t) || forDoc.includes(t);
+}
+
+export const TITLE_HINT = 'Say what it changes, e.g. "Move spring elections to April".';
+
+/** Why this amendment can't go to a vote yet (no real title, or no changes), or null. */
+export async function readyError(a: Row): Promise<string | null> {
+  const doc = await db.get("SELECT title FROM docs WHERE slug=$1", [a.doc_slug]);
+  if (isPlaceholderTitle(a.title, doc?.title)) return `Amendment #${a.id} needs a descriptive title. ${TITLE_HINT}`;
+  if (!(await hasChanges(a))) return `Amendment #${a.id} doesn't change anything in the document.`;
+  return null;
+}
+
+/**
+ * Delete unattached drafts that don't change anything and haven't been touched
+ * in a while (the editor discards them itself on leave; this catches the rest,
+ * e.g. a closed laptop).
+ */
+export async function purgeEmptyDrafts(maxAgeHours = 24): Promise<number> {
+  const rows = await db.all(
+    `SELECT id, doc_slug, base_commit, content FROM amendments a
+     WHERE status='draft' AND updated_at < now() - make_interval(hours => $1)
+       AND NOT EXISTS (SELECT 1 FROM poll_questions WHERE amendment_id=a.id)
+       AND NOT EXISTS (SELECT 1 FROM proposal_attachments WHERE amendment_id=a.id)`,
+    [maxAgeHours]
+  );
+  let n = 0;
+  for (const r of rows) {
+    try {
+      if (await hasChanges(r)) continue;
+    } catch {
+      continue; // base commit unreadable: leave it for a human
+    }
+    n += (await db.run("DELETE FROM amendments WHERE id=$1 AND status='draft'", [r.id])).rowCount ?? 0;
+  }
+  if (n) console.log(`[amendments] removed ${n} empty draft${n === 1 ? "" : "s"}`);
+  return n;
 }

@@ -11,8 +11,8 @@
   <div class="d-flex gap-2">
     <a class="btn btn-sm btn-outline-secondary" href="<%= base %>/docs/<%= doc.slug %>/history" aria-label="History" title="History"><%- icon('clock-history') %><span class="hg-label">History</span></a>
     <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#embed" aria-label="Embed code" title="Embed code"><%- icon('code-slash') %><span class="hg-label">Embed</span></button>
-    <% if (user && user.hasPermission(GOVPERMS.PROPOSE) && !rev) { %>
-      <form method="post" action="<%= base %>/docs/<%= doc.slug %>/amend"><button class="btn btn-sm btn-dark" aria-label="Propose an amendment" title="Propose an amendment"><%- icon('pencil-square') %><span class="hg-label">Propose an amendment</span></button></form>
+    <% if (user && (user.hasPermission(GOVPERMS.PROPOSE) || user.hasPermission(GOVPERMS.DOCS_MANAGE)) && !rev) { %>
+      <a class="btn btn-sm btn-dark" href="<%= base %>/docs/<%= doc.slug %>/amend<%= user.hasPermission(GOVPERMS.PROPOSE) ? '' : '?custodial=1' %>" aria-label="Propose an edit" title="Propose an edit"><%- icon('pencil-square') %><span class="hg-label">Propose an edit</span></a>
     <% } %>
   </div>
 </div>
@@ -23,22 +23,49 @@
   Raw markdown: <a href="<%= base %>/docs/<%= doc.slug %>/raw.md"><%= config.baseUrl %>/docs/<%= doc.slug %>/raw.md</a>
 </div></div>
 
-<% if (rev) { %><div class="alert alert-warning small">You're viewing an old version (<code><%= rev.slice(0, 7) %></code>). <a href="<%= base %>/docs/<%= doc.slug %>">View current</a></div><% } %>
+<% const canManageDocs = user && user.hasPermission(GOVPERMS.DOCS_MANAGE); %>
+<% if (rev) { %><div class="alert alert-warning small" id="restore">
+  You're viewing an old version (<code><%= rev.slice(0, 7) %></code>). <a href="<%= base %>/docs/<%= doc.slug %>">View current</a> · <a href="<%= base %>/docs/<%= doc.slug %>/commits/<%= rev %>">View difference from current version</a>
+  <% if (canManageDocs && !head.startsWith(rev)) { %>
+    <form method="post" action="<%= base %>/docs/<%= doc.slug %>/restore-version" class="d-flex flex-wrap gap-2"
+      onsubmit="return confirm('Make this old version the current document? This creates a rollback change, which preserves the newer versions in the document\'s history.')">
+      <input type="hidden" name="rev" value="<%= rev %>"><input type="hidden" name="expected_head" value="<%= head %>">
+      <input class="form-control form-control-sm flex-grow-1" style="min-width: 16rem; width: auto" name="reason" required maxlength="300" placeholder="Why, e.g. Undo accidental edit" aria-label="Reason for restoring this version">
+      <button class="btn btn-sm btn-dark"><%- icon('arrow-counterclockwise') %> Restore this version</button>
+    </form>
+  <% } %>
+</div><% } %>
 
 <% if (amendments.length) { %>
   <div class="alert alert-light border small">Pending amendments:
-    <% amendments.forEach((a, i) => { %><%= i ? ', ' : '' %><a href="<%= base %>/docs/amendments/<%= a.id %>"><%= a.title %></a><% if (a.status === 'conflict') { %> <span class="badge text-bg-warning">conflict</span><% } %><% }) %>
+    <% amendments.forEach((a, i) => { %><%= i ? ', ' : '' %><a href="<%= base %>/docs/amendments/<%= a.id %>"><%= a.title || 'Untitled amendment' %></a><% if (a.status === 'conflict') { %> <span class="badge text-bg-warning">conflict</span><% } %><% }) %>
   </div>
 <% } %>
 
 <div class="row g-5">
   <div class="col-lg-9">
+    <details class="doc-toc-mobile d-lg-none" id="toc-mobile" hidden>
+      <summary><%- icon('list-ul') %> Contents</summary>
+      <nav aria-label="Contents"></nav>
+    </details>
     <article class="doc-page" id="doc">
       <% if (!hasOwnTitle) { %><h1><%= doc.title %></h1><% } %>
       <%- html %>
     </article>
     <% if (lastChange && !rev) { %>
       <footer class="doc-colophon">Last amended <%= fmtDate(lastChange.date, { dateOnly: true }) %> by <%= lastChange.author %>: <a href="<%= base %>/docs/<%= doc.slug %>/commits/<%= lastChange.sha %>"><%= lastChange.subject %></a> · <a href="<%= base %>/docs/<%= doc.slug %>/history">Full history</a></footer>
+    <% } %>
+    <% if (canManageDocs && !rev) { %>
+      <details class="mt-4 small" id="delete">
+        <summary class="text-danger">Archive this document…</summary>
+        <form method="post" action="<%= base %>/docs/<%= doc.slug %>/delete" class="mt-2" style="max-width: 28rem">
+          <div class="text-secondary mb-1">This document is hidden from non-managers and its history is preserved. Unattached draft amendments are deleted. Type <b><%= doc.slug %></b> to confirm.</div>
+          <div class="input-group input-group-sm">
+            <input name="confirm" class="form-control" autocomplete="off" aria-label="Type the slug to confirm">
+            <button class="btn btn-danger"><%- icon('archive') %> Archive document</button>
+          </div>
+        </form>
+      </details>
     <% } %>
   </div>
   <aside class="col-lg-3 d-none d-lg-block">
@@ -47,18 +74,62 @@
 </div>
 
 <script>
-  // Give headings anchors and build the contents sidebar.
+  // Give headings anchors and build the contents sidebar. The sidebar is capped
+  // to the viewport and scrolls on its own; it follows the section being read.
+  // Long documents (many entries) show subsections only under the current section.
   (() => {
     const heads = [...document.querySelectorAll('#doc h2, #doc h3')];
     const toc = document.getElementById('toc');
-    if (heads.length < 2) { toc.remove(); return; }
+    const mobile = document.getElementById('toc-mobile');
+    if (heads.length < 2) { toc.remove(); mobile.remove(); return; }
     const used = new Set();
-    toc.innerHTML = '<div class="doc-toc-title">Contents</div>' + heads.map((h) => {
+    const items = heads.map((h) => {
       let id = h.textContent.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'section';
       while (used.has(id)) id += '-';
       used.add(id); h.id = id;
-      return `<a class="${h.tagName === 'H3' ? 'sub' : ''}" href="#${id}">${hg.escapeHtml(h.textContent)}</a>`;
-    }).join('');
+      return { id, sub: h.tagName === 'H3', text: hg.escapeHtml(h.textContent) };
+    });
+    // Each subsection belongs to the h2 above it.
+    let parent = null;
+    for (const it of items) { if (it.sub) it.parent = parent; else parent = it.id; }
+    const links = items.map((it) =>
+      `<a class="${it.sub ? 'sub' : ''}" href="#${it.id}" data-id="${it.id}"${it.parent ? ` data-parent="${it.parent}"` : ''}>${it.text}</a>`).join('');
+    const long = items.length > 15;
+    toc.innerHTML = `<div class="doc-toc-title">Contents <span class="text-muted fw-normal">(${items.length})</span></div>
+      <div class="doc-toc-list${long ? ' collapse-subs' : ''}">${links}</div>`;
+    mobile.querySelector('nav').innerHTML = links;
+    mobile.hidden = false;
+    mobile.addEventListener('click', (e) => { if (e.target.closest('a')) mobile.open = false; });
+
+    // Track the section being read: the last heading above the top fifth of the screen.
+    const list = toc.querySelector('.doc-toc-list');
+    let current = null;
+    const update = () => {
+      const line = window.innerHeight * 0.2;
+      let active = heads[0];
+      for (const h of heads) { if (h.getBoundingClientRect().top <= line) active = h; else break; }
+      if (active.id === current) return;
+      current = active.id;
+      const item = items.find((it) => it.id === current);
+      const section = item.sub ? item.parent : item.id;
+      for (const a of list.querySelectorAll('a')) {
+        a.classList.toggle('active', a.dataset.id === current);
+        a.classList.toggle('open', a.dataset.id === section || a.dataset.parent === section);
+      }
+      // Keep the active link visible inside the scrolling sidebar.
+      const a = list.querySelector('a.active');
+      if (a) {
+        const top = a.offsetTop - list.offsetTop;
+        if (top < list.scrollTop || top + a.offsetHeight > list.scrollTop + list.clientHeight)
+          list.scrollTo({ top: top - list.clientHeight / 3, behavior: 'smooth' });
+      }
+    };
+    let queued = false;
+    window.addEventListener('scroll', () => {
+      if (queued) return; queued = true;
+      requestAnimationFrame(() => { queued = false; update(); });
+    }, { passive: true });
+    update();
   })();
 </script>
 <%- include('../partials/foot') %>

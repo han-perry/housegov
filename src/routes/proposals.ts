@@ -77,7 +77,7 @@ async function formLocals(req: Request, values: FormValues, errors: string[] = [
     values,
     errors,
     drafts: await db.all(
-      `SELECT a.id,a.title,a.doc_slug,d.title AS doc_title FROM amendments a JOIN docs d ON d.slug=a.doc_slug
+      `SELECT a.id,COALESCE(NULLIF(a.title,''),'Untitled amendment') AS title,a.doc_slug,d.title AS doc_title FROM amendments a JOIN docs d ON d.slug=a.doc_slug
        WHERE a.author=$1 AND a.status='draft' ORDER BY a.updated_at DESC`,
       [req.user!.username]
     ),
@@ -124,6 +124,8 @@ router.post("/", requirePerm(GOVPERMS.PROPOSE), async (req, res) => {
 
   const myDrafts = await db.all("SELECT * FROM amendments WHERE author=$1 AND status='draft'", [user.username]);
   const attach = myDrafts.filter((a) => v.amendments.includes(String(a.id)));
+  const notReady = (await Promise.all(attach.map((a) => amendmentClaims.readyError(a)))).filter((e): e is string => !!e);
+  if (notReady.length) return res.status(400).render("proposals/new", await formLocals(req, v, notReady));
   // Freeze each amendment's patch (diff against its base) before the transaction.
   const patches = new Map<number, string>();
   for (const a of attach) patches.set(a.id, govdocs.unifiedDiff(await govdocs.read(a.doc_slug, a.base_commit), a.content, `${a.doc_slug}.md`));
@@ -299,6 +301,37 @@ router.post("/:id/votes", manageOrPresent, async (req, res) => {
   await proposals.recordVote(p.id, yay, nay, req.user!.username, "Vote count recorded");
   if (p.meeting_id) realtime.emit(`meeting:${p.meeting_id}`, "agenda", {});
   res.json({ ok: true, outcome: proposals.voteOutcome(p.type, yay, nay) });
+});
+
+// Take an amendment off a proposal (e.g. to put it to a full-forum poll, or
+// attach it to a different proposal). It goes back to being an editable
+// draft, unless a poll question still holds it. Applied/rejected amendments
+// are history and stay attached.
+router.post("/:id/amendments/:amendmentId/detach", manage, async (req, res) => {
+  const id = intParam(req.params.id);
+  const amendmentId = intParam(req.params.amendmentId);
+  const a = await db.get(
+    `SELECT a.id, a.title, a.status FROM proposal_attachments pa JOIN amendments a ON a.id = pa.amendment_id
+     WHERE pa.proposal_id=$1 AND pa.amendment_id=$2`,
+    [id, amendmentId]
+  );
+  if (!a) {
+    req.flash("danger", "That amendment isn't attached to this proposal.");
+    return res.redirect(`/proposals/${id}`);
+  }
+  if (a.status === "applied" || a.status === "rejected") {
+    req.flash("danger", `Amendment #${a.id} was already ${a.status}, so it stays on the record of this proposal.`);
+    return res.redirect(`/proposals/${id}`);
+  }
+  const p = await db.get("SELECT meeting_id FROM proposals WHERE id=$1", [id]);
+  await db.tx(async () => {
+    await db.run("DELETE FROM proposal_attachments WHERE proposal_id=$1 AND amendment_id=$2", [id, a.id]);
+    await amendmentClaims.releaseIfUnclaimed(a.id);
+    await proposals.log(id, req.user!.username, `Amendment #${a.id} (${a.title}) detached`);
+  });
+  if (p?.meeting_id) realtime.emit(`meeting:${p.meeting_id}`, "agenda", {});
+  req.flash("success", `Detached "${a.title}". It's an editable draft again unless a poll still holds it.`);
+  res.redirect(back(req, `/proposals/${id}`));
 });
 
 router.post("/:id/dismiss", manage, async (req, res) => {

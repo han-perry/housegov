@@ -58,6 +58,11 @@ CREATE TABLE IF NOT EXISTS docs (
   category    TEXT NOT NULL DEFAULT 'Policy',
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- Deleting a document archives it: hidden everywhere, history and applied
+-- amendments kept, restorable by a docs manager.
+ALTER TABLE docs ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+ALTER TABLE docs ADD COLUMN IF NOT EXISTS deleted_by TEXT;
+
 CREATE TABLE IF NOT EXISTS amendments (
   id             SERIAL PRIMARY KEY,
   doc_slug       TEXT NOT NULL REFERENCES docs(slug) ON DELETE CASCADE,
@@ -83,6 +88,11 @@ CREATE TABLE IF NOT EXISTS proposal_attachments (
   account_number TEXT,                  -- funding: existing account to add to; NULL = create a new account
   amendment_id INTEGER REFERENCES amendments(id) ON DELETE SET NULL
 );
+
+-- Custodial changes (dates, typos, renumbering) applied by a docs manager
+-- without a vote. Recorded here and in the git commit message.
+ALTER TABLE amendments ADD COLUMN IF NOT EXISTS custodial_by TEXT;
+ALTER TABLE amendments ADD COLUMN IF NOT EXISTS custodial_reason TEXT;
 
 -- Older databases: the fixed proposal/discretionary/lounge accounts were
 -- replaced by a free-form account number.
@@ -137,13 +147,18 @@ CREATE TABLE IF NOT EXISTS poll_questions (
   id        SERIAL PRIMARY KEY,
   poll_id   INTEGER NOT NULL REFERENCES polls(id) ON DELETE CASCADE,
   sort      INTEGER NOT NULL,
-  type      TEXT NOT NULL CHECK (type IN ('choice','multi','vote','text')),
+  type      TEXT NOT NULL CHECK (type IN ('choice','multi','vote','text','divider','section')),
   prompt    TEXT NOT NULL,
   options   JSONB NOT NULL DEFAULT '[]',  -- [{id,label,statement}]
   config    JSONB NOT NULL DEFAULT '{}'   -- {method:'pick1'|'irv', writeIn, threshold, required}
 );
 
 ALTER TABLE poll_questions ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT '';  -- markdown
+
+-- Layout items in the form: 'divider' (a zigzag line) and 'section' (heading
+-- in prompt, markdown text in description). They take no answers.
+ALTER TABLE poll_questions DROP CONSTRAINT IF EXISTS poll_questions_type_check;
+ALTER TABLE poll_questions ADD CONSTRAINT poll_questions_type_check CHECK (type IN ('choice','multi','vote','text','divider','section'));
 
 -- A govdoc amendment is decided by one multiple-choice question; it's applied
 -- at close if the option in config.adopt wins (see tally.amendmentOutcome).

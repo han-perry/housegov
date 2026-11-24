@@ -10,6 +10,7 @@
       <div class="btn-group btn-group-sm">
         <a class="btn btn-outline-secondary" href="<%= base %>/docs/<%= doc.slug %>/commits/<%= c.sha %>" aria-label="Changes" title="Changes"><%- icon('file-diff') %><span class="hg-label">Changes</span></a>
         <a class="btn btn-outline-secondary" href="<%= base %>/docs/<%= doc.slug %>?rev=<%= c.sha %>" aria-label="View this version" title="View this version"><%- icon('eye') %><span class="hg-label">View this version</span></a>
+        <% if (i > 0 && user && user.hasPermission(GOVPERMS.DOCS_MANAGE)) { %><a class="btn btn-outline-secondary" href="<%= base %>/docs/<%= doc.slug %>?rev=<%= c.sha %>#restore" aria-label="Restore this version" title="Restore this version (asks for a reason first)"><%- icon('arrow-counterclockwise') %><span class="hg-label">Restore</span></a><% } %>
       </div>
     </div>
   <% }) %>

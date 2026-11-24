@@ -12,8 +12,8 @@
         <div>
           <div class="fw-medium"><%= p.title %></div>
           <div class="meta"><%= p.secret ? 'Secret ballot' : 'Public ballot' %> ·
-            <% if (key === 'open') { %>closes in <span data-countdown="<%= new Date(p.closes_at).toISOString() %>" data-style="inline"></span>
-            <% } else if (key === 'upcoming') { %>opens <%= fmtDate(p.opens_at) %>
+            <% if (key === 'open') { %>closes in <span data-countdown="<%= new Date(p.closes_at).toISOString() %>" data-style="inline" data-done="0m 00s · closed"></span>
+            <% } else if (key === 'upcoming') { %>opens <%= fmtDate(p.opens_at) %> (in <span data-countdown="<%= new Date(p.opens_at).toISOString() %>" data-style="inline" data-done="0m 00s · open now"></span>)
             <% } else { %>closed <%= fmtDate(p.closes_at) %><% } %>
           </div>
         </div>

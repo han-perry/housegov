@@ -1,0 +1,25 @@
+<%- include('partials/head') %>
+<h1 class="h3">Attributions</h1>
+<p>HouseGov (AKA GovTracker 3.0) was built by Perry Han (<code>perryh</code>) in 2026</p>
+<p>This website is based off of GovTracker v2.0, contributors [ (<code>advay</code> 2006), (<code>wthrowe</code>, 2008) ]</p>
+<p>Govtracker was hosted on Simmons DB through the efforts of [(<code>dramage</code> 2002), <code>bonawitz</code>, <code>dheera</code>, <code>psaindon</code> ]</p>
+
+<h2 class="h5 mt-4">GovTracker v2.0</h2>
+<p class="text-secondary small">Legacy System, 2006-2026</p>
+<div class="row g-4 mb-4">
+  <% [
+    ['govtracker-v2-committee.png', 'House Committee Management: policy search and past meetings'],
+    ['govtracker-v2-submit-proposal.png', 'Submitting a proposal'],
+  ].forEach(([file, caption]) => { %>
+    <figure class="col-md-6 mb-0">
+      <a href="<%= base %>/static/assets/img/<%= file %>" target="_blank" rel="noopener">
+        <img class="img-fluid border rounded" src="<%= base %>/static/assets/img/<%= file %>" alt="Screenshot of GovTracker v2.0: <%= caption %>" loading="lazy">
+      </a>
+      <figcaption class="small text-secondary mt-1"><%= caption %></figcaption>
+    </figure>
+  <% }) %>
+</div>
+
+<p><i>Parts of this software were developed with Coding Agents. In accordance with Tech Chair policy, all AI-Assisted work must be disclosed and reviewed by a human before being accepted into production systems.</i></p>
+<p>The HouseGov website is licensed under the <a href="">MIT License</a></p>
+<%- include('partials/foot') %>

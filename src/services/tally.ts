@@ -27,7 +27,7 @@ export interface QuestionConfig {
 }
 export interface Question {
   id: number;
-  type: "choice" | "multi" | "vote" | "text";
+  type: "choice" | "multi" | "vote" | "text" | "divider" | "section";
   prompt: string; // inline markdown
   description?: string; // markdown
   options: Option[];
@@ -35,6 +35,10 @@ export interface Question {
   amendment_id?: number | null;
 }
 export type Answer = string | string[] | { writeIn: string };
+
+/** Form layout (a divider line or a text section): shown on the ballot, never answered or counted. */
+export const LAYOUT_TYPES = ["divider", "section"] as const;
+export const isLayout = (q: Pick<Question, "type">) => (LAYOUT_TYPES as readonly string[]).includes(q.type);
 export interface Ballot {
   answers: Record<string, Answer>;
   excluded?: boolean;
@@ -185,6 +189,9 @@ export function tallyQuestion(q: Question, ballots: Ballot[]): QuestionTally {
       return countMulti(q, answers);
     case "vote":
       return q.config.method === "irv" ? instantRunoff(q, answers) : countSingle(q, answers);
+    case "divider":
+    case "section":
+      return { kind: "text", total: 0, responses: [] }; // not reached: tallyPoll skips layout
     case "text": {
       const responses = answers.filter((a): a is string => typeof a === "string" && !!a);
       return { kind: "text", total: responses.length, responses };
@@ -197,7 +204,7 @@ export type PollTally = QuestionTally & { questionId: number; prompt: string; ty
 /** Tally every question, skipping ballots the chair excluded. */
 export function tallyPoll(questions: Question[], ballots: Ballot[]): PollTally[] {
   const counted = ballots.filter((b) => !b.excluded);
-  return questions.map((q) => ({
+  return questions.filter((q) => !isLayout(q)).map((q) => ({
     questionId: q.id,
     prompt: q.prompt,
     type: q.type,

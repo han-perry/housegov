@@ -40,7 +40,13 @@
       <h2 class="h6 mt-3">Attached amendments</h2>
       <ul>
         <% amendments.forEach(a => { %>
-          <li><a href="<%= base %>/docs/amendments/<%= a.amendment_id %>"><%= a.amendment_title %></a> <span class="meta">to <a href="<%= base %>/docs/<%= a.doc_slug %>"><%= a.doc_slug %></a> · <%= a.amendment_status %></span></li>
+          <li><a href="<%= base %>/docs/amendments/<%= a.amendment_id %>"><%= a.amendment_title %></a> <span class="meta">to <a href="<%= base %>/docs/<%= a.doc_slug %>"><%= a.doc_slug %></a> · <%= a.amendment_status %></span>
+            <% if (canManage && ['submitted', 'conflict', 'draft'].includes(a.amendment_status)) { %>
+              <form method="post" action="<%= base %>/proposals/<%= p.id %>/amendments/<%= a.amendment_id %>/detach" class="d-inline" onsubmit="return confirm('Detach this amendment from the proposal? It goes back to being an editable draft, and this proposal will no longer apply it.')">
+                <button class="btn btn-link btn-sm p-0 ms-1 align-baseline text-danger" aria-label="Detach amendment" title="Detach from this proposal"><%- icon('x-circle') %><span class="hg-label">Detach</span></button>
+              </form>
+            <% } %>
+          </li>
         <% }) %>
       </ul>
     <% } %>

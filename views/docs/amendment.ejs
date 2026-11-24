@@ -1,18 +1,21 @@
 <%- include('../partials/head', { useEditor: editable, useDiff: true }) %>
 <%
   const badge = { draft: 'secondary', submitted: 'primary', applied: 'success', rejected: 'danger', conflict: 'warning' }[a.status];
+  // A new draft has no id until its first save; links carry a placeholder the script fills in.
+  const aid = a.id || '__ID__';
+  const needsId = a.id ? '' : 'data-needs-id hidden';
 %>
 <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
   <div>
     <a href="<%= base %>/docs/<%= a.doc_slug %>" class="small">← <%= a.doc_title %></a>
-    <h1 class="h4 mt-1 mb-0">Amendment #<%= a.id %>
-      <span class="badge text-bg-<%= badge %> align-middle fs-6"><%= a.status %></span>
+    <h1 class="h4 mt-1 mb-0"><span id="a-heading"><%= a.id ? `Amendment #${a.id}` : 'New amendment' %></span>
+      <span class="badge text-bg-<%= badge %> align-middle fs-6" id="a-status"><%= a.id ? a.status : 'not saved yet' %></span>
     </h1>
-    <div class="meta">by <%= a.author %> · started <%= fmtDate(a.created_at) %> · based on <code><%= a.base_commit.slice(0, 7) %></code></div>
+    <div class="meta">by <%= a.author %><%= a.id ? ` · started ${fmtDate(a.created_at)}` : '' %> · based on <code><%= a.base_commit.slice(0, 7) %></code></div>
   </div>
   <div class="d-flex gap-2 flex-wrap">
     <% if (a.status === 'draft' && user && user.username === a.author && user.hasPermission(GOVPERMS.PROPOSE)) { %>
-      <a class="btn btn-sm btn-dark" href="<%= base %>/proposals/new?amendment=<%= a.id %>" aria-label="Attach to a new proposal" title="Attach to a new proposal"><%- icon('paperclip') %><span class="hg-label">Attach to a new proposal</span></a>
+      <a class="btn btn-sm btn-dark" <%- needsId %> href="<%= base %>/proposals/new?amendment=<%= aid %>" aria-label="Attach to a new proposal" title="Attach to a new proposal"><%- icon('paperclip') %><span class="hg-label">Attach to a new proposal</span></a>
     <% } %>
     <% if (editable && behind) { %>
       <form method="post" action="<%= base %>/docs/amendments/<%= a.id %>/rebase"><button class="btn btn-sm btn-outline-secondary" title="The document changed since this draft was started" aria-label="Update to latest document"><%- icon('arrow-repeat') %><span class="hg-label">Update to latest document</span></button></form>
@@ -21,12 +24,20 @@
       <form method="post" action="<%= base %>/docs/amendments/<%= a.id %>/apply" onsubmit="return confirm('Apply this approved amendment to the document now?')"><button class="btn btn-sm btn-success" aria-label="Apply approved amendment" title="Apply approved amendment"><%- icon('check2-circle') %><span class="hg-label">Apply approved amendment</span></button></form>
     <% } %>
     <% if (editable) { %>
-      <form method="post" action="<%= base %>/docs/amendments/<%= a.id %>/delete" onsubmit="return confirm('Delete this amendment?')"><button class="btn btn-sm btn-outline-danger" aria-label="Delete amendment" title="Delete amendment"><%- icon('trash') %><span class="hg-label">Delete</span></button></form>
+      <form <%- needsId %> method="post" action="<%= base %>/docs/amendments/<%= aid %>/delete" onsubmit="return confirm('Delete this amendment?')"><button class="btn btn-sm btn-outline-danger" aria-label="Delete amendment" title="Delete amendment"><%- icon('trash') %><span class="hg-label">Delete</span></button></form>
     <% } %>
   </div>
 </div>
 
-<% if (a.attachedTo) { %><div class="alert alert-light border small">Attached to proposal <a href="<%= base %>/proposals/<%= a.attachedTo.id %>">#<%= a.attachedTo.id %>: <%= a.attachedTo.title %></a><%= a.attachedTo.decision ? ` (${a.attachedTo.decision})` : '' %>.</div><% } %>
+<% if (a.custodial_reason && a.status === 'applied') { %><div class="alert alert-light border small"><%- icon('wrench') %> Custodial change applied without a vote by <b><%= a.custodial_by %></b>: <%= a.custodial_reason %></div><% } %>
+<% if (a.attachedTo) { %><div class="alert alert-light border small d-flex flex-wrap align-items-center gap-2">
+  <span class="flex-grow-1">Attached to proposal <a href="<%= base %>/proposals/<%= a.attachedTo.id %>">#<%= a.attachedTo.id %>: <%= a.attachedTo.title %></a><%= a.attachedTo.decision ? ` (${a.attachedTo.decision})` : '' %>.</span>
+  <% if (user && user.hasPermission(GOVPERMS.MANAGE) && ['draft', 'submitted', 'conflict'].includes(a.status)) { %>
+    <form method="post" action="<%= base %>/proposals/<%= a.attachedTo.id %>/amendments/<%= a.id %>/detach" onsubmit="return confirm('Detach this amendment from proposal #<%= a.attachedTo.id %>? It goes back to being an editable draft.')">
+      <button class="btn btn-sm btn-outline-danger" aria-label="Detach from proposal" title="Detach from proposal"><%- icon('x-circle') %><span class="hg-label">Detach from proposal</span></button>
+    </form>
+  <% } %>
+</div><% } %>
 <% if (a.poll) { const adopt = (a.poll.options.find(o => o.id === a.poll.config.adopt) || {}).label; %><div class="alert alert-light border small">Decided by the question <b><%- mdInline(a.poll.prompt) %></b> in <a href="<%= base %>/polls/<%= a.poll.id %>"><%= a.poll.title %></a>: applied if <b><%= adopt %></b> wins.</div><% } %>
 <% if (a.status === 'conflict') { %><div class="alert alert-warning small">The document changed in a way that conflicts with this amendment. In each block, the part between <code>&lt;&lt;&lt;&lt;&lt;&lt;&lt; current</code> and <code>=======</code> is the document as it is now; the part after <code>=======</code> up to <code>&gt;&gt;&gt;&gt;&gt;&gt;&gt; amendment</code> is this amendment's version. Edit the text so it says what the House approved and delete the markers. It saves automatically<%= (a.attachedTo && a.attachedTo.decision === 'APPROVED') || (a.poll && a.poll.finalized) ? ', then press "Apply approved amendment"' : '' %>.</div><% } %>
 <% if (!editable && a.status === 'submitted') { %><div class="alert alert-light border small">This amendment is locked because it's attached to a proposal or vote. Docs managers can still edit it (e.g. after a motion to amend the wording).</div><% } %>
@@ -34,10 +45,13 @@
 <% if (editable) { %>
   <div class="row g-3">
     <div class="col-xl-6">
-      <input class="form-control fw-medium mb-2" id="a-title" value="<%= a.title %>" aria-label="Amendment title">
+      <label class="form-label small fw-medium mb-1" for="a-title">Title <span class="text-danger" aria-hidden="true">*</span></label>
+      <input class="form-control fw-medium" id="a-title" value="<%= a.title %>" required maxlength="200" aria-describedby="a-title-help"
+        placeholder="What does this change? e.g. Move spring elections to April" <%= a.title ? '' : 'autofocus' %>>
+      <div class="form-text mb-2" id="a-title-help">Required before it can go on a proposal or poll. <%= titleHint %></div>
       <textarea name="content" hidden><%= a.content %></textarea>
       <div data-md-editor="content" data-mode="markdown" data-height="560px"></div>
-      <div class="meta mt-1" id="saved">All changes saved</div>
+      <div class="meta mt-1" id="saved"><%= a.id ? 'All changes saved' : 'Nothing is saved until you change the document.' %></div>
     </div>
     <div class="col-xl-6">
       <div class="d-flex justify-content-between"><h2 class="h6">Changes from the current version</h2><span class="meta" id="stats"></span></div>
@@ -45,12 +59,26 @@
     </div>
   </div>
 <% } else { %>
-  <h2 class="h5"><%= a.title %></h2>
+  <h2 class="h5"><%= a.title || 'Untitled amendment' %></h2>
   <div id="diff"></div>
 <% } %>
 
 <textarea id="base" hidden><%= baseText %></textarea>
 <textarea id="patch" hidden><%= patch %></textarea>
+
+<% if (canCustodial) { %>
+  <details class="card card-body mb-3 mt-3 custodial-box" <%= openCustodial ? 'open' : '' %>>
+    <summary><%- icon('wrench') %> <span class="fw-medium">Apply without a vote (custodial change)</span></summary>
+    <p class="small text-secondary mt-2 mb-2">For small changes that don't need to be put up to a vote, you can directly create a change. <strong>This change will be publicly logged.</strong></p>
+    <form method="post" action="<%= base %>/docs/amendments/<%= aid %>/custodial" id="custodial-form" class="d-flex flex-wrap gap-2"
+      onsubmit="return confirm('Apply this change to the document now, without a vote?')">
+      <input type="hidden" name="content"><input type="hidden" name="title">
+      <input class="form-control form-control-sm flex-grow-1" style="min-width: 16rem; width: auto" name="reason" required maxlength="300" placeholder="What and why, e.g. Update term dates for 2027" aria-label="Reason for the custodial change">
+      <button class="btn btn-sm btn-dark"><%- icon('wrench') %> Apply custodial change</button>
+    </form>
+  </details>
+<% } %>
+
 <script>
   document.addEventListener('DOMContentLoaded', () => {
     const el = document.getElementById('diff');
@@ -68,19 +96,85 @@
         const changes = Diff.diffLines(nl(base), nl(ta.value));
         const add = changes.filter((c) => c.added).reduce((n, c) => n + c.count, 0), del = changes.filter((c) => c.removed).reduce((n, c) => n + c.count, 0);
         document.getElementById('stats').textContent = `+${add} −${del} lines`;
-        if (add + del === 0) el.innerHTML = '<p class="text-secondary small">No changes yet. Edit the document on the left.</p>'; else draw(patch);
+        if (add + del === 0) el.innerHTML = '<p class="text-secondary small">No changes yet.</p>'; else draw(patch);
       };
       let t = null;
-      const save = async () => {
-        try {
-          const r = await hg.postJSON('/docs/amendments/<%= a.id %>', { title: title.value, content: ta.value }, 'PUT');
-          saved.textContent = 'Saved ' + new Date(r.savedAt).toLocaleTimeString();
-          if (r.status !== '<%= a.status %>') location.reload();
-        } catch (e) { saved.textContent = 'Save failed: ' + e.message; }
+      let id = <%- JSON.stringify(a.id) %>;
+      const status = <%- JSON.stringify(a.status) %>;
+      const custodialStart = <%- JSON.stringify(!a.id && openCustodial) %>;
+      const docTitle = <%- JSON.stringify(docTitle).replace(/</g, '\\u003c') %>.toLowerCase();
+      const changedFromBase = () => nl(ta.value) !== nl(base);
+      // Mirrors isPlaceholderTitle on the server (enough to warn; the server decides).
+      const weakTitle = (v) => {
+        const s = v.trim().toLowerCase().replace(/\s+/g, ' ');
+        return s.length < 3 || ['amendment', 'untitled', 'untitled amendment', 'edit', 'edits', 'change', 'changes', 'update', 'draft', 'test',
+          docTitle, 'amend ' + docTitle, 'amend the ' + docTitle, 'amendment to ' + docTitle, 'amendment to the ' + docTitle,
+          'edit ' + docTitle, 'edit to ' + docTitle, 'update ' + docTitle, 'custodial edit to ' + docTitle].includes(s);
       };
-      const changed = () => { saved.textContent = 'Saving…'; redraw(); clearTimeout(t); t = setTimeout(save, 1000); };
+      const checkTitle = () => title.classList.toggle('is-invalid', weakTitle(title.value) && (changedFromBase() || !!id));
+      // First save of a new draft: create it, then point the page at it.
+      const created = (newId) => {
+        id = newId;
+        history.replaceState(null, '', hg.url('/docs/amendments/' + id));
+        document.getElementById('a-heading').textContent = 'Amendment #' + id;
+        document.getElementById('a-status').textContent = 'draft';
+        document.title = document.title.replace(/^[^|–-]*/, 'Amendment #' + id + ' ');
+        for (const el of document.querySelectorAll('[href*="__ID__"], [action*="__ID__"]')) {
+          for (const attr of ['href', 'action']) if (el.getAttribute(attr)) el.setAttribute(attr, el.getAttribute(attr).replace('__ID__', id));
+        }
+        for (const el of document.querySelectorAll('[data-needs-id]')) el.hidden = false;
+      };
+      let inflight = Promise.resolve();
+      const payload = () => ({ title: title.value, content: ta.value });
+      const save = () => (inflight = inflight.then(async () => {
+        try {
+          if (!id) {
+            if (!changedFromBase()) { saved.textContent = 'Nothing is saved until you change the document.'; return; }
+            const r = await hg.postJSON('/docs/<%= a.doc_slug %>/amendments', { ...payload(), base_commit: <%- JSON.stringify(a.base_commit) %>, custodial: custodialStart });
+            created(r.id);
+            saved.textContent = 'Saved as draft #' + r.id + ' ' + new Date(r.savedAt).toLocaleTimeString();
+          } else {
+            const r = await hg.postJSON('/docs/amendments/' + id, payload(), 'PUT');
+            saved.textContent = 'Saved ' + new Date(r.savedAt).toLocaleTimeString();
+            if (r.status !== status) location.reload();
+          }
+          if (weakTitle(title.value)) saved.textContent += ' · needs a title';
+        } catch (e) { saved.textContent = 'Save failed: ' + e.message; }
+      }));
+      const changed = () => { saved.textContent = 'Saving…'; redraw(); checkTitle(); clearTimeout(t); t = setTimeout(save, 1000); };
       ta.addEventListener('input', changed);
       title.addEventListener('input', changed);
+      title.addEventListener('blur', checkTitle);
+
+      // Leaving the page: flush a pending save, or drop a draft that ends up changing nothing.
+      let discarded = false;
+      window.addEventListener('pagehide', () => {
+        if (!id || status !== 'draft') return;
+        if (!changedFromBase()) {
+          clearTimeout(t);
+          discarded = navigator.sendBeacon(hg.url('/docs/amendments/' + id + '/discard'));
+        } else if (t) {
+          clearTimeout(t); t = null;
+          fetch(hg.url('/docs/amendments/' + id), { method: 'PUT', keepalive: true, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload()) });
+        }
+      });
+      // Back-button restore of a page whose draft was discarded: go to the document instead.
+      window.addEventListener('pageshow', (e) => { if (e.persisted && discarded) location.replace(hg.url('/docs/<%= a.doc_slug %>')); });
+
+      // Custodial apply: send the editor's current text (an autosave may be pending), creating the draft first if needed.
+      const cf = document.getElementById('custodial-form');
+      if (cf) cf.addEventListener('submit', async (e) => {
+        if (e.defaultPrevented) return; // the confirm() was cancelled
+        clearTimeout(t);
+        if (!title.value.trim() || weakTitle(title.value)) title.value = cf.reason.value; // the reason names the change
+        cf.content.value = ta.value; cf.title.value = title.value;
+        if (id) return;
+        e.preventDefault();
+        if (!changedFromBase()) { alert('There are no changes to apply. Edit the document first.'); return; }
+        await save();
+        if (id) cf.submit();
+      });
+      checkTitle();
       redraw();
     <% } %>
   });

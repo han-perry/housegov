@@ -22,7 +22,13 @@ async function postJSON<T = Record<string, unknown>>(path: string, body?: unknow
   return data as T;
 }
 
-/** Live countdowns: <span data-countdown="ISO">; optional progress bar via data-start/data-progress. */
+/**
+ * Live countdowns: <span data-countdown="ISO">, ticking every second.
+ * data-style="inline" gives "2d 4h 05m 09s" (leading zero units dropped);
+ * data-done is the text shown when it reaches zero (default "passed").
+ * Optional progress bar via data-start/data-progress. Times are fixed at page
+ * load: if a poll or meeting is rescheduled, a reload picks up the new time.
+ */
 function startCountdowns(): void {
   const els = document.querySelectorAll<HTMLElement>("[data-countdown]");
   if (!els.length) return;
@@ -37,7 +43,10 @@ function startCountdowns(): void {
       s %= 3600;
       const m = Math.floor(s / 60);
       s %= 60;
-      if (el.dataset.style === "inline") el.textContent = end <= now ? "passed" : `${d ? d + "d " : ""}${h}h ${m}m`;
+      if (el.dataset.style === "inline") {
+        const pad = (n: number) => String(n).padStart(2, "0");
+        el.textContent = end <= now ? el.dataset.done || "passed" : d ? `${d}d ${h}h ${pad(m)}m ${pad(s)}s` : h ? `${h}h ${pad(m)}m ${pad(s)}s` : `${m}m ${pad(s)}s`;
+      }
       else el.innerHTML = `${d}<small>d</small>${h}<small>h</small>${m}<small>m</small>${s}<small>s</small>`;
       const bar = el.dataset.progress ? document.getElementById(el.dataset.progress) : null;
       if (bar && el.dataset.start) {
