@@ -10,6 +10,27 @@ body { font-family: var(--hg-sans); background: #fafafa; color: #18181b; }
 .hg-nav { background: var(--hg-grey); border-bottom: 1px solid #d4d4d8; }
 .hg-nav .navbar-brand { font-weight: 600; letter-spacing: -0.01em; }
 .hg-nav .nav-link.active { font-weight: 600; text-decoration: underline; text-underline-offset: 6px; }
+.hg-nav > .hg-nav-inner { flex-wrap: wrap; }
+.btn:has(> .bi) { white-space: nowrap; }
+.hg-nav-main { margin-right: auto; }
+
+/* Icons: icon + text on desktop. Below md, labels marked .hg-label collapse to
+   icon-only (still read by screen readers, like .visually-hidden). Use
+   .hg-label on toolbar-style buttons; keep full text on primary form buttons. */
+.bi { line-height: 1; vertical-align: -.125em; }
+.bi + .hg-label, .bi + span:not(.hg-label), .hg-label + .bi { margin-left: .4em; }
+@media (max-width: 767.98px) {
+  .hg-label {
+    position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important;
+    overflow: hidden !important; clip: rect(0, 0, 0, 0) !important; white-space: nowrap !important; border: 0 !important;
+  }
+  /* Main nav becomes a tab row of icons under the brand. */
+  .hg-nav-user { margin-left: auto; }
+  .hg-nav-main { order: 3; width: 100%; margin: .25rem 0 0; justify-content: space-around; border-top: 1px solid #d4d4d8; padding-top: .25rem; }
+  .hg-nav-main .nav-link { font-size: 1.25rem; padding: .35rem .75rem; border-radius: .375rem; }
+  .hg-nav-main .nav-link.active { text-decoration: none; background: #d4d4d8; }
+  .hg-nav-user .nav-link, .hg-nav-user .navbar-text { font-size: 1.15rem; padding: .25rem .4rem; }
+}
 h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.01em; }
 code, pre, .font-mono, .vote-id { font-family: var(--hg-mono); }
 
@@ -94,3 +115,9 @@ textarea.minutes-box { font-family: var(--hg-mono); font-size: .9rem; min-height
 
 .question-desc { font-size: .95rem; color: #3f3f46; margin-bottom: .75rem; }
 .question-desc > :last-child { margin-bottom: 0; }
+
+/* Poll question that decides a govdoc amendment */
+.amend-note { background: #f4f4f5; border-left: 3px solid #18181b; border-radius: .25rem; padding: .4rem .6rem; }
+.amend-box { background: #fafafa; border: 1px dashed #a1a1aa; border-radius: .375rem; padding: .4rem .75rem; }
+.amend-box > summary { cursor: pointer; }
+.amend-box[open] { padding-bottom: .6rem; }

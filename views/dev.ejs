@@ -10,9 +10,9 @@
       <% allPerms.forEach(p => { %>
         <div class="form-check"><input class="form-check-input" type="checkbox" name="perms" value="<%= p %>" id="<%= p %>" <%= !current || current.hasPermission(p) ? 'checked' : '' %>><label class="form-check-label font-mono small" for="<%= p %>"><%= p %></label></div>
       <% }) %>
-      <div class="mt-3 d-flex gap-2"><button class="btn btn-dark">Switch</button></div>
+      <div class="mt-3 d-flex gap-2"><button class="btn btn-dark"><%- icon('arrow-left-right') %> Switch</button></div>
     </form>
-    <form method="post" action="<%= base %>/dev/logout" class="mt-2"><button class="btn btn-sm btn-link px-0">Sign out (view as anonymous)</button></form>
+    <form method="post" action="<%= base %>/dev/logout" class="mt-2"><button class="btn btn-sm btn-link px-0"><%- icon('box-arrow-right') %> Sign out (view as anonymous)</button></form>
   </div>
   <div class="col-md-6">
     <div class="card card-body">

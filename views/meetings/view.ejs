@@ -5,10 +5,10 @@
     <div class="meta"><%= fmtDate(m.meeting_at) %> · <%= m.status === 'completed' ? 'Completed' : m.status === 'live' ? 'In progress' : 'Scheduled' %></div>
   </div>
   <div class="btn-group btn-group-sm">
-    <% if (m.status !== 'completed') { %><a class="btn btn-outline-secondary" href="<%= base %>/meetings/<%= m.id %>/live">Live view</a><% } %>
-    <a class="btn btn-outline-secondary" href="<%= base %>/meetings/<%= m.id %>/slides" target="_blank">Slides</a>
-    <% if (user && user.hasPermission(GOVPERMS.MANAGE)) { %><a class="btn btn-outline-secondary" href="<%= base %>/meetings/<%= m.id %>/manage">Manage</a><% } %>
-    <% if (user && user.hasPermission([GOVPERMS.PRESENTATION, GOVPERMS.MANAGE]) && m.status !== 'completed') { %><a class="btn btn-dark" href="<%= base %>/meetings/<%= m.id %>/console">Presenter console</a><% } %>
+    <% if (m.status !== 'completed') { %><a class="btn btn-outline-secondary" href="<%= base %>/meetings/<%= m.id %>/live" aria-label="Live view" title="Live view"><%- icon('broadcast') %><span class="hg-label">Live view</span></a><% } %>
+    <a class="btn btn-outline-secondary" href="<%= base %>/meetings/<%= m.id %>/slides" target="_blank" aria-label="Slides (opens in a new tab)" title="Slides (opens in a new tab)"><%- icon('projector') %><span class="hg-label">Slides</span></a>
+    <% if (user && user.hasPermission(GOVPERMS.MANAGE)) { %><a class="btn btn-outline-secondary" href="<%= base %>/meetings/<%= m.id %>/manage" aria-label="Manage agenda" title="Manage agenda"><%- icon('list-ol') %><span class="hg-label">Manage</span></a><% } %>
+    <% if (user && user.hasPermission([GOVPERMS.PRESENTATION, GOVPERMS.MANAGE]) && m.status !== 'completed') { %><a class="btn btn-dark" href="<%= base %>/meetings/<%= m.id %>/console" aria-label="Presenter console" title="Presenter console"><%- icon('display') %><span class="hg-label">Presenter console</span></a><% } %>
   </div>
 </div>
 

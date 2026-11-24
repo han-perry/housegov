@@ -1,47 +1,58 @@
 <%- include('../partials/head') %>
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
   <div>
-    <h1 class="h4 mb-0">Presenter console</h1>
+    <h1 class="h4 mb-0">Presenter console <span id="status-badge" class="badge align-middle fs-6"></span></h1>
     <div class="meta"><%= m.title %> · <span id="viewers">–</span> connected</div>
   </div>
-  <div class="btn-group btn-group-sm">
-    <a class="btn btn-outline-secondary" href="<%= base %>/meetings/<%= m.id %>/slides" target="_blank">Open projector view ↗</a>
-    <a class="btn btn-outline-secondary" href="<%= base %>/meetings/<%= m.id %>/manage">Edit agenda</a>
-    <form method="post" action="<%= base %>/meetings/<%= m.id %>/adjourn" onsubmit="return confirm('Adjourn the meeting? Tabled proposals go back to the open pool.')"><button class="btn btn-danger btn-sm ms-2">Adjourn</button></form>
+  <div class="d-flex gap-2 align-items-center">
+    <div class="btn-group btn-group-sm">
+      <a class="btn btn-outline-secondary" href="<%= base %>/meetings/<%= m.id %>/slides" target="_blank" aria-label="Open projector view (new tab)" title="Open projector view (new tab)"><%- icon('projector') %><span class="hg-label">Projector view</span></a>
+      <a class="btn btn-outline-secondary" href="<%= base %>/meetings/<%= m.id %>/manage" aria-label="Edit agenda" title="Edit agenda"><%- icon('list-ol') %><span class="hg-label">Edit agenda</span></a>
+      <button class="btn btn-outline-secondary d-none" id="unstart" aria-label="Mark as not started" title="Started by accident? Put the meeting back to not started"><%- icon('pause-circle') %><span class="hg-label">Not started</span></button>
+    </div>
+    <form method="post" action="<%= base %>/meetings/<%= m.id %>/adjourn" onsubmit="return confirm('Adjourn the meeting? Tabled proposals go back to the open pool.')"><button class="btn btn-danger btn-sm" aria-label="Adjourn meeting" title="Adjourn meeting"><%- icon('door-closed') %><span class="hg-label">Adjourn</span></button></form>
   </div>
+</div>
+
+<div id="start-banner" class="alert alert-warning d-flex flex-wrap align-items-center gap-3 <%= m.status === 'live' ? 'd-none' : '' %>">
+  <div class="flex-grow-1">
+    <div class="fw-semibold"><%- icon('hourglass-split') %> The meeting hasn't started</div>
+    <div class="small">Projectors and phones show the title slide. You can click through slides here to rehearse; nobody else's screen moves until you start.</div>
+  </div>
+  <button class="btn btn-dark" id="start"><%- icon('play-fill') %> Start meeting</button>
 </div>
 
 <div class="row g-4">
   <div class="col-lg-7">
     <div class="d-flex align-items-center gap-2 mb-2">
-      <button class="btn btn-dark" id="prev">← Prev</button>
-      <button class="btn btn-dark" id="next">Next →</button>
+      <button class="btn btn-dark" id="prev" aria-label="Previous slide" title="Previous slide (←)"><%- icon('chevron-left') %><span class="hg-label">Prev</span></button>
+      <button class="btn btn-dark" id="next" aria-label="Next slide" title="Next slide (→)"><span class="hg-label">Next</span><%- icon('chevron-right') %></button>
       <select class="form-select form-select-sm w-auto" id="jump" aria-label="Jump to slide"></select>
       <div class="btn-group ms-auto" role="group" aria-label="Scroll the projector">
-        <button class="btn btn-outline-dark" id="scroll-top" title="Back to top of slide">⤒</button>
-        <button class="btn btn-outline-dark" id="scroll-up" title="Scroll projector up (↑)">▲</button>
-        <button class="btn btn-outline-dark" id="scroll-down" title="Scroll projector down (↓)">▼ Scroll</button>
+        <button class="btn btn-outline-dark" id="scroll-top" aria-label="Scroll to top of slide" title="Back to top of slide"><%- icon('chevron-bar-up') %></button>
+        <button class="btn btn-outline-dark" id="scroll-up" aria-label="Scroll up" title="Scroll projector up (↑)"><%- icon('chevron-up') %></button>
+        <button class="btn btn-outline-dark" id="scroll-down" aria-label="Scroll down" title="Scroll projector down (↓)"><%- icon('chevron-down') %><span class="hg-label">Scroll</span></button>
       </div>
     </div>
     <div class="console-preview mb-1" id="preview"></div>
-    <div class="meta mb-2">Long slide? Use ▼ Scroll or the ↓/↑ keys to scroll it on the projector. ←/→ change slides.</div>
+    <div class="meta mb-2" id="preview-hint">Long slide? Use the <%- icon('chevron-down') %> scroll buttons or the ↓/↑ keys to scroll it on the projector. ←/→ change slides.</div>
 
     <div id="proposal-tools" class="card card-body mb-3 d-none">
       <div class="d-flex flex-wrap gap-2 align-items-center">
         <span class="small fw-medium me-1">Decision:</span>
         <span id="decision-buttons" class="d-flex flex-wrap gap-1"></span>
-        <a id="edit-link" class="btn btn-sm btn-outline-secondary ms-auto" href="#">Edit proposal</a>
+        <a id="edit-link" class="btn btn-sm btn-outline-secondary ms-auto" href="#" aria-label="Edit proposal" title="Edit proposal"><%- icon('pencil') %><span class="hg-label">Edit proposal</span></a>
       </div>
       <div class="small text-secondary mt-2" id="decision-status"></div>
       <div id="vote-tools" class="border-top mt-2 pt-2">
         <div class="d-flex flex-wrap gap-2 align-items-center small">
           <span class="fw-medium">Vote <span id="vote-required" class="text-secondary fw-normal"></span>:</span>
-          <button class="btn btn-sm btn-dark" id="vote-call">Call clicker vote on this proposal</button>
+          <button class="btn btn-sm btn-dark live-only" id="vote-call"><%- icon('phone') %> Call clicker vote on this proposal</button>
           <span class="text-secondary">or hand count</span>
           <div class="input-group input-group-sm" style="width: auto">
             <span class="input-group-text">Yay</span><input class="form-control" id="hc-yay" type="number" min="0" style="width: 4.5rem">
             <span class="input-group-text">Nay</span><input class="form-control" id="hc-nay" type="number" min="0" style="width: 4.5rem">
-            <button class="btn btn-outline-dark" id="hc-save">Record</button>
+            <button class="btn btn-outline-dark" id="hc-save"><%- icon('check-lg') %> Record</button>
           </div>
         </div>
         <div class="small mt-2" id="vote-outcome"></div>
@@ -52,24 +63,24 @@
       <h2 class="h6">Ad hoc vote</h2>
       <div id="adhoc-idle" class="input-group input-group-sm">
         <input id="adhoc-q" class="form-control" placeholder="Question (e.g. Motion to extend discussion 5 minutes)">
-        <button class="btn btn-dark" id="adhoc-open">Call vote</button>
+        <button class="btn btn-dark live-only" id="adhoc-open"><%- icon('megaphone') %> Call vote</button>
       </div>
       <div id="adhoc-live" class="d-none">
         <div class="fw-medium" id="adhoc-title"></div>
         <div class="fs-5 my-1">Yay <b id="a-yay">0</b> · Nay <b id="a-nay">0</b> <span class="small text-secondary" id="a-share"></span></div>
-        <button class="btn btn-sm btn-outline-danger" id="adhoc-close">Close vote &amp; record in minutes</button>
+        <button class="btn btn-sm btn-outline-danger" id="adhoc-close"><%- icon('stop-circle') %> <span id="adhoc-close-label">Close vote &amp; record in minutes</span></button>
       </div>
     </div>
   </div>
 
   <div class="col-lg-5">
     <div class="d-flex justify-content-between align-items-center">
-      <h2 class="h6 mb-1">Minutes <span class="meta fw-normal">(markdown, autosaves)</span></h2>
+      <h2 class="h6 mb-1">Minutes <span class="meta fw-normal">(markdown text, autosaves)</span></h2>
       <span class="meta" id="saved"></span>
     </div>
     <textarea class="form-control minutes-box" id="minutes" spellcheck="true"><%= m.minutes %></textarea>
     <div class="small mt-1">
-      <button class="btn btn-sm btn-link p-0" id="stamp">Insert timestamp + current item</button>
+      <button class="btn btn-sm btn-link p-0" id="stamp"><%- icon('clock') %> Insert timestamp + current item</button>
     </div>
   </div>
 </div>
@@ -79,8 +90,19 @@
   (() => {
     const MID = <%= m.id %>;
     const clientId = Math.random().toString(36).slice(2);
-    let slides = [], current = 0, adhoc = null, lastIndex = -1;
+    let slides = [], current = 0, adhoc = null, lastIndex = -1, status = <%- JSON.stringify(m.status) %>;
     const $ = (id) => document.getElementById(id);
+    const live = () => status === 'live';
+
+    function renderStatus() {
+      $('start-banner').classList.toggle('d-none', live());
+      $('unstart').classList.toggle('d-none', !live());
+      const b = $('status-badge');
+      b.className = 'badge align-middle fs-6 ' + (live() ? 'text-bg-danger' : 'text-bg-secondary');
+      b.innerHTML = live() ? '<%- icon('broadcast') %> Live' : 'Rehearsal';
+      document.querySelectorAll('.live-only').forEach((el) => { el.disabled = !live(); el.title = live() ? '' : 'Start the meeting first'; });
+      $('preview-hint').classList.toggle('opacity-50', !live());
+    }
 
     function render() {
       const s = slides[current];
@@ -107,18 +129,37 @@
 
     async function load() {
       const st = await (await fetch(hg.url(`/meetings/${MID}/state`))).json();
-      slides = st.slides; current = st.current; adhoc = st.adhoc;
-      render(); renderAdhoc();
+      // Rehearsing before the start keeps your local position.
+      slides = st.slides; adhoc = st.adhoc; status = st.status;
+      if (live() || current >= slides.length) current = st.current;
+      render(); renderAdhoc(); renderStatus();
     }
     async function go(i) {
       i = Math.max(0, Math.min(slides.length - 1, i));
       current = i; render();
-      await hg.postJSON(`/meetings/${MID}/slide`, { index: i });
+      if (live()) await hg.postJSON(`/meetings/${MID}/slide`, { index: i }).catch((e) => alert(e.message));
     }
     // Scroll the projector by a step; the preview follows the same step so it
-    // roughly matches what the room sees.
-    const scroll = (step) => hg.postJSON(`/meetings/${MID}/scroll`, { index: current, step }).catch((e) => alert(e.message));
+    // roughly matches what the room sees. Before the start, only the preview moves.
+    function scrollPreview(step) {
+      const el = $('preview');
+      const from = el._target ?? el.scrollTop;
+      el._target = step === 'top' ? 0 : Math.max(0, Math.min(el.scrollHeight - el.clientHeight, from + step * el.clientHeight * 0.6));
+      el.scrollTo({ top: el._target, behavior: 'smooth' });
+    }
+    const scroll = (step) => live()
+      ? hg.postJSON(`/meetings/${MID}/scroll`, { index: current, step }).catch((e) => alert(e.message))
+      : scrollPreview(step);
     $('preview').addEventListener('scrollend', () => { $('preview')._target = undefined; });
+    $('start').onclick = async () => {
+      try { await hg.postJSON(`/meetings/${MID}/start`); status = 'live'; current = 0; render(); renderStatus(); }
+      catch (e) { alert(e.message); }
+    };
+    $('unstart').onclick = async () => {
+      if (!confirm('Put the meeting back to "not started"? Screens return to the title slide and any open vote closes.')) return;
+      try { await hg.postJSON(`/meetings/${MID}/unstart`); status = 'scheduled'; adhoc = null; renderAdhoc(); renderStatus(); }
+      catch (e) { alert(e.message); }
+    };
     $('scroll-top').onclick = () => scroll('top');
     $('scroll-up').onclick = () => scroll(-1);
     $('scroll-down').onclick = () => scroll(1);
@@ -134,7 +175,7 @@
     });
 
     $('decision-buttons').addEventListener('click', async (e) => {
-      const d = e.target.dataset.decision; const s = slides[current];
+      const d = e.target.closest('[data-decision]')?.dataset.decision; const s = slides[current];
       if (!d || !s) return;
       if (s.decision && !confirm(`Change decision from ${s.decision} to ${d}?`)) return;
       try {
@@ -164,14 +205,18 @@
         for (const k of ['yay', 'nay']) $('a-' + k).textContent = adhoc.tally[k];
         const tot = adhoc.tally.yay + adhoc.tally.nay;
         $('a-share').textContent = tot ? `(${(adhoc.tally.yay / tot * 100).toFixed(0)}% yay)` : '';
-        $('adhoc-close').textContent = adhoc.proposal_id ? 'Close vote & record on proposal + minutes' : 'Close vote & record in minutes';
+        $('adhoc-close-label').textContent = adhoc.proposal_id ? 'Close vote & record on proposal + minutes' : 'Close vote & record in minutes';
       }
     }
-    $('adhoc-open').onclick = async () => { const r = await hg.postJSON(`/meetings/${MID}/adhoc`, { question: $('adhoc-q').value }); adhoc = r.adhoc; $('adhoc-q').value = ''; renderAdhoc(); };
+    $('adhoc-open').onclick = async () => {
+      try { const r = await hg.postJSON(`/meetings/${MID}/adhoc`, { question: $('adhoc-q').value }); adhoc = r.adhoc; $('adhoc-q').value = ''; renderAdhoc(); }
+      catch (e) { alert(e.message); }
+    };
     $('vote-call').onclick = async () => {
       const s = slides[current]; if (!s) return;
       if (adhoc && !confirm('Close the current vote and start one on this proposal?')) return;
-      const r = await hg.postJSON(`/meetings/${MID}/adhoc`, { proposal_id: s.proposalId }); adhoc = r.adhoc; renderAdhoc();
+      try { const r = await hg.postJSON(`/meetings/${MID}/adhoc`, { proposal_id: s.proposalId }); adhoc = r.adhoc; renderAdhoc(); }
+      catch (e) { alert(e.message); }
     };
     $('hc-save').onclick = async () => {
       const s = slides[current]; if (!s) return;
@@ -184,16 +229,11 @@
 
     const socket = io({ path: hg.base + '/socket.io' });
     socket.on('connect', () => { socket.emit('join', `meeting:${MID}`); load(); });
-    socket.on('slide', ({ index }) => { current = index; render(); });
+    socket.on('slide', ({ index }) => { if (live()) { current = index; render(); } });
+    socket.on('status', (st) => { status = st.status; if (live()) current = 0; render(); renderStatus(); });
     socket.on('agenda', load);
     socket.on('adhoc', (v) => { adhoc = v; renderAdhoc(); });
-    socket.on('scroll', ({ index, step }) => {
-      if (index !== current) return;
-      const el = $('preview');
-      const from = el._target ?? el.scrollTop;
-      el._target = step === 'top' ? 0 : Math.max(0, Math.min(el.scrollHeight - el.clientHeight, from + step * el.clientHeight * 0.6));
-      el.scrollTo({ top: el._target, behavior: 'smooth' });
-    });
+    socket.on('scroll', ({ index, step }) => { if (index === current) scrollPreview(step); });
     socket.on('minutes', ({ minutes, clientId: from }) => {
       if (from === clientId) return;
       if (Date.now() - lastTyped > 3000) box.value = minutes;

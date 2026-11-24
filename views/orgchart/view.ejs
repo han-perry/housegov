@@ -7,12 +7,13 @@
   </div>
   <div class="d-flex gap-2 flex-wrap">
     <div class="btn-group btn-group-sm" role="group" aria-label="Chart controls">
-      <button class="btn btn-outline-secondary" id="org-fit">Fit</button>
-      <button class="btn btn-outline-secondary" id="org-expand">Expand all</button>
-      <button class="btn btn-outline-secondary" id="org-collapse">Collapse</button>
-      <button class="btn btn-outline-secondary" id="org-layout">Rotate</button>
+      <button class="btn btn-outline-secondary" id="org-fit" aria-label="Fit to screen" title="Fit to screen"><%- icon('arrows-angle-contract') %><span class="hg-label">Fit</span></button>
+      <button class="btn btn-outline-secondary" id="org-expand" aria-label="Expand all" title="Expand all"><%- icon('arrows-expand') %><span class="hg-label">Expand all</span></button>
+      <button class="btn btn-outline-secondary" id="org-collapse" aria-label="Collapse all" title="Collapse all"><%- icon('arrows-collapse') %><span class="hg-label">Collapse</span></button>
+      <button class="btn btn-outline-secondary" id="org-compact" aria-pressed="true" aria-label="Stack roles vertically" title="Stack roles in columns (narrower chart)"><%- icon('grid-3x2-gap') %><span class="hg-label">Stack</span></button>
+      <button class="btn btn-outline-secondary" id="org-layout" aria-label="Rotate layout" title="Rotate layout"><%- icon('arrow-clockwise') %><span class="hg-label">Rotate</span></button>
     </div>
-    <% if (canEdit) { %><button class="btn btn-sm btn-outline-dark" data-bs-toggle="collapse" data-bs-target="#edit">Edit</button><% } %>
+    <% if (canEdit) { %><button class="btn btn-sm btn-outline-dark" data-bs-toggle="collapse" data-bs-target="#edit" aria-label="Edit org chart" title="Edit org chart"><%- icon('pencil') %><span class="hg-label">Edit</span></button><% } %>
   </div>
 </div>
 
@@ -21,7 +22,7 @@
     <form method="post" action="<%= base %>/orgchart" class="card card-body">
       <p class="small text-secondary mb-2">One role per line, written <code>Role: username, username</code>. Indent two spaces to put a role under the one above it. A line without a colon is a group heading.</p>
       <textarea name="text" class="form-control font-mono" rows="12"><%= text %></textarea>
-      <div class="mt-2"><button class="btn btn-sm btn-dark">Save</button></div>
+      <div class="mt-2"><button class="btn btn-sm btn-dark"><%- icon('check-lg') %> Save</button></div>
     </form>
   </div>
 <% } %>

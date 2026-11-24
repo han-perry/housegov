@@ -1,7 +1,7 @@
 <%- include('../partials/head') %>
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h1 class="h3 mb-0">Policy Documents</h1>
-  <% if (user && user.hasPermission(GOVPERMS.DOCS_MANAGE)) { %><a class="btn btn-dark" href="<%= base %>/docs/new">New document</a><% } %>
+  <% if (user && user.hasPermission(GOVPERMS.DOCS_MANAGE)) { %><a class="btn btn-dark" href="<%= base %>/docs/new" aria-label="New document" title="New document"><%- icon('plus-lg') %><span class="hg-label">New document</span></a><% } %>
 </div>
 <div class="row g-4">
   <div class="col-lg-7">

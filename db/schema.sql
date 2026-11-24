@@ -129,7 +129,6 @@ CREATE TABLE IF NOT EXISTS polls (
   closes_at          TIMESTAMPTZ NOT NULL,
   show_live_results  BOOLEAN NOT NULL DEFAULT false,
   proposal_id        INTEGER REFERENCES proposals(id) ON DELETE SET NULL,  -- moved to full forum
-  amendment_id       INTEGER REFERENCES amendments(id) ON DELETE SET NULL, -- applied if it passes
   finalized          BOOLEAN NOT NULL DEFAULT false,
   created_by         TEXT NOT NULL,
   created_at         TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -144,12 +143,32 @@ CREATE TABLE IF NOT EXISTS poll_questions (
   config    JSONB NOT NULL DEFAULT '{}'   -- {method:'pick1'|'irv', writeIn, threshold, required}
 );
 
--- An amendment belongs to one proposal and at most one poll (the full-forum
--- handoff); see services/amendments.ts.
-CREATE UNIQUE INDEX IF NOT EXISTS polls_one_per_amendment ON polls (amendment_id) WHERE amendment_id IS NOT NULL;
-CREATE UNIQUE INDEX IF NOT EXISTS attachments_one_per_amendment ON proposal_attachments (amendment_id) WHERE amendment_id IS NOT NULL;
-
 ALTER TABLE poll_questions ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT '';  -- markdown
+
+-- A govdoc amendment is decided by one multiple-choice question; it's applied
+-- at close if the option in config.adopt wins (see tally.amendmentOutcome).
+ALTER TABLE poll_questions ADD COLUMN IF NOT EXISTS amendment_id INTEGER REFERENCES amendments(id) ON DELETE SET NULL;
+
+-- Older databases kept one amendment per poll, decided by "Yes" on the first
+-- multiple-choice question. Move it onto that question and make "Yes" explicit.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'polls' AND column_name = 'amendment_id') THEN
+    UPDATE poll_questions q
+       SET amendment_id = p.amendment_id,
+           config = q.config || jsonb_build_object('adopt',
+             (SELECT o->>'id' FROM jsonb_array_elements(q.options) o WHERE o->>'label' ~* '^(yes|yay|approve)$' LIMIT 1))
+      FROM polls p
+     WHERE p.amendment_id IS NOT NULL
+       AND q.id = (SELECT id FROM poll_questions WHERE poll_id = p.id AND type = 'choice' ORDER BY sort, id LIMIT 1);
+    ALTER TABLE polls DROP COLUMN amendment_id;
+  END IF;
+END $$;
+
+-- An amendment belongs to one proposal and at most one poll question (the
+-- full-forum handoff); see services/amendments.ts.
+CREATE UNIQUE INDEX IF NOT EXISTS questions_one_per_amendment ON poll_questions (amendment_id) WHERE amendment_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS attachments_one_per_amendment ON proposal_attachments (amendment_id) WHERE amendment_id IS NOT NULL;
 
 -- A ballot is keyed by a random vote ID. For secret polls username is NULL
 -- and there are no timestamps, so nothing links it to poll_voters.

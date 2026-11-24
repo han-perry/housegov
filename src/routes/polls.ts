@@ -62,7 +62,7 @@ async function builderLocals(poll: polls.Poll | null) {
   return {
     title: poll ? `Edit: ${poll.title}` : "New Poll",
     poll,
-    amendments: await amendments.pollChoices(poll?.id ?? null, poll?.amendment_id ?? null),
+    amendments: await amendments.pollChoices(poll?.id ?? null),
     hasBallots: poll ? !!(await db.get("SELECT 1 FROM ballots WHERE poll_id=$1", [poll.id])) : false,
   };
 }
@@ -77,8 +77,7 @@ interface BuilderPayload {
   show_live_results: boolean;
   opens_at: string;
   closes_at: string;
-  amendment_id: number | null;
-  questions: Array<{ id?: number; type: Question["type"]; prompt: string; description?: string; options: Question["options"]; config: Question["config"] }>;
+  questions: Array<{ id?: number; type: Question["type"]; prompt: string; description?: string; options: Question["options"]; config: Question["config"]; amendment_id?: number | string | null }>;
 }
 
 function cleanPayload(b: Partial<BuilderPayload>) {
@@ -98,6 +97,12 @@ function cleanPayload(b: Partial<BuilderPayload>) {
     if (!str(q.prompt)) errors.push(`Question ${i + 1} needs a prompt.`);
     if (type !== "text" && options.length < 1) errors.push(`Question ${i + 1} needs at least one option.`);
     if (threshold !== null && (Number.isNaN(threshold) || threshold < 0 || threshold > 100)) errors.push(`Question ${i + 1}: threshold must be 0–100%.`);
+    // A policy amendment is decided by one multiple-choice question, adopted
+    // if the chosen option wins.
+    const amendmentId = q.amendment_id ? Number(q.amendment_id) : null;
+    const adopt = amendmentId ? str(q.config?.adopt) : "";
+    if (amendmentId && type !== "choice") errors.push(`Question ${i + 1}: only multiple-choice questions can decide an amendment.`);
+    else if (amendmentId && !options.some((o) => o.id === adopt)) errors.push(`Question ${i + 1}: choose which option adopts the amendment.`);
     return {
       id: q.id ? Number(q.id) : undefined,
       type,
@@ -109,45 +114,63 @@ function cleanPayload(b: Partial<BuilderPayload>) {
         writeIn: (type === "vote" || type === "choice") && !!q.config?.writeIn,
         threshold,
         required: q.config?.required !== false,
+        adopt: type === "choice" && amendmentId ? adopt : undefined,
       },
+      amendment_id: type === "choice" ? amendmentId : null,
     };
   });
   if (!qs.length) errors.push("Add at least one question.");
+  const used = qs.map((q) => q.amendment_id).filter((x): x is number => !!x);
+  if (new Set(used).size !== used.length) errors.push("Each amendment can be decided by only one question. Split it into separate amendments, or decide it in one question.");
   return {
     errors,
-    poll: { title, description: String(b.description ?? ""), secret: !!b.secret, show_live_results: !!b.show_live_results, opens, closes, amendment_id: b.amendment_id ? Number(b.amendment_id) : null },
+    poll: { title, description: String(b.description ?? ""), secret: !!b.secret, show_live_results: !!b.show_live_results, opens, closes },
     questions: qs,
   };
+}
+
+/** Amendments the payload adds and drops relative to what the poll holds now. */
+async function amendmentChanges(pollId: number | null, qs: ReturnType<typeof cleanPayload>["questions"]) {
+  const before = new Set(pollId ? (await db.all("SELECT amendment_id FROM poll_questions WHERE poll_id=$1 AND amendment_id IS NOT NULL", [pollId])).map((r) => r.amendment_id as number) : []);
+  const after = new Set(qs.map((q) => q.amendment_id).filter((x): x is number => !!x));
+  const errors: string[] = [];
+  const added = [...after].filter((id) => !before.has(id));
+  for (const id of added) {
+    const err = await amendments.pollClaimError(id, pollId);
+    if (err) errors.push(err);
+  }
+  return { added, dropped: [...before].filter((id) => !after.has(id)), errors };
 }
 
 async function saveQuestions(pollId: number, qs: ReturnType<typeof cleanPayload>["questions"]) {
   const keep = qs.filter((q) => q.id).map((q) => q.id);
   await db.run("DELETE FROM poll_questions WHERE poll_id=$1 AND NOT (id = ANY($2::int[]))", [pollId, keep]);
+  // Clear first so moving an amendment between questions doesn't trip the unique index.
+  await db.run("UPDATE poll_questions SET amendment_id=NULL WHERE poll_id=$1", [pollId]);
   for (const [i, q] of qs.entries()) {
     const existing = q.id && (await db.get("SELECT 1 FROM poll_questions WHERE id=$1 AND poll_id=$2", [q.id, pollId]));
+    const params = [i, q.type, q.prompt, JSON.stringify(q.options), JSON.stringify(q.config), q.description, q.amendment_id];
     if (existing) {
-      await db.run("UPDATE poll_questions SET sort=$1,type=$2,prompt=$3,options=$4,config=$5,description=$6 WHERE id=$7", [i, q.type, q.prompt, JSON.stringify(q.options), JSON.stringify(q.config), q.description, q.id]);
+      await db.run("UPDATE poll_questions SET sort=$1,type=$2,prompt=$3,options=$4,config=$5,description=$6,amendment_id=$7 WHERE id=$8", [...params, q.id]);
     } else {
-      await db.run("INSERT INTO poll_questions(poll_id,sort,type,prompt,options,config,description) VALUES ($1,$2,$3,$4,$5,$6,$7)", [pollId, i, q.type, q.prompt, JSON.stringify(q.options), JSON.stringify(q.config), q.description]);
+      await db.run("INSERT INTO poll_questions(poll_id,sort,type,prompt,options,config,description,amendment_id) VALUES ($8,$1,$2,$3,$4,$5,$6,$7)", [...params, pollId]);
     }
   }
 }
 
 router.post("/", manage, async (req, res) => {
   const c = cleanPayload(req.body);
-  if (c.poll.amendment_id) {
-    const err = await amendments.pollClaimError(c.poll.amendment_id, null);
-    if (err) c.errors.push(err);
-  }
+  const changes = await amendmentChanges(null, c.questions);
+  c.errors.push(...changes.errors);
   if (c.errors.length) return res.status(400).json({ errors: c.errors });
   const id = await claimSafely(res, () => db.tx(async () => {
     const r = await db.run(
-      `INSERT INTO polls(title,description,secret,show_live_results,opens_at,closes_at,amendment_id,created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
-      [c.poll.title, c.poll.description, c.poll.secret, c.poll.show_live_results, c.poll.opens, c.poll.closes, c.poll.amendment_id, req.user!.username]
+      `INSERT INTO polls(title,description,secret,show_live_results,opens_at,closes_at,created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
+      [c.poll.title, c.poll.description, c.poll.secret, c.poll.show_live_results, c.poll.opens, c.poll.closes, req.user!.username]
     );
     await saveQuestions(r.rows[0].id, c.questions);
-    if (c.poll.amendment_id) await amendments.lock(c.poll.amendment_id);
+    for (const a of changes.added) await amendments.lock(a);
     return r.rows[0].id as number;
   }));
   if (id === undefined) return;
@@ -158,14 +181,11 @@ router.post("/", manage, async (req, res) => {
 router.post("/:id", manage, load, async (req, res) => {
   const c = cleanPayload(req.body);
   const poll = P(req);
-  const swapped = c.poll.amendment_id !== (poll.amendment_id ?? null);
-  if (swapped && c.poll.amendment_id) {
-    const err = await amendments.pollClaimError(c.poll.amendment_id, poll.id);
-    if (err) c.errors.push(err);
-  }
+  const changes = await amendmentChanges(poll.id, c.questions);
+  c.errors.push(...changes.errors);
   if (c.errors.length) return res.status(400).json({ errors: c.errors });
   const saved = await claimSafely(res, () => db.tx(async () => {
-    await db.run("UPDATE polls SET title=$1,description=$2,secret=$3,show_live_results=$4,opens_at=$5,closes_at=$6,amendment_id=$7,finalized=false WHERE id=$8", [
+    await db.run("UPDATE polls SET title=$1,description=$2,secret=$3,show_live_results=$4,opens_at=$5,closes_at=$6,finalized=false WHERE id=$7", [
       c.poll.title,
       c.poll.description,
       // Secrecy can't be changed once ballots exist (it would expose or orphan them).
@@ -173,14 +193,11 @@ router.post("/:id", manage, load, async (req, res) => {
       c.poll.show_live_results,
       c.poll.opens,
       c.poll.closes,
-      c.poll.amendment_id,
       poll.id,
     ]);
     await saveQuestions(poll.id, c.questions);
-    if (swapped) {
-      if (c.poll.amendment_id) await amendments.lock(c.poll.amendment_id);
-      await amendments.releaseIfUnclaimed(poll.amendment_id);
-    }
+    for (const a of changes.added) await amendments.lock(a);
+    for (const a of changes.dropped) await amendments.releaseIfUnclaimed(a);
     return true;
   }));
   if (!saved) return;
@@ -199,7 +216,7 @@ router.post("/:id/close-now", manage, load, async (req, res) => {
 router.post("/:id/delete", manage, load, async (req, res) => {
   await db.tx(async () => {
     await db.run("DELETE FROM polls WHERE id=$1", [P(req).id]);
-    await amendments.releaseIfUnclaimed(P(req).amendment_id);
+    for (const q of P(req).questions) await amendments.releaseIfUnclaimed(q.amendment_id);
   });
   req.flash("success", "Poll deleted.");
   res.redirect("/polls");

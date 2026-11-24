@@ -12,11 +12,11 @@
       <div class="form-text">Proposals submitted after this go to the following meeting.</div></div>
   </div>
   <div class="mb-3">
-    <label class="form-label fw-medium" for="preface">Preface text (markdown)</label>
+    <label class="form-label fw-medium" for="preface">Preface text <span class="meta fw-normal">(markdown text)</span></label>
     <textarea class="form-control" id="preface" name="preface" rows="3"></textarea>
   </div>
   <p class="small text-secondary">Standing sections (House Chair's Announcements, President's Announcements, Committee Reports) are added automatically. You can edit or remove them.</p>
-  <div><button class="btn btn-dark">Create meeting</button></div>
+  <div><button class="btn btn-dark"><%- icon('calendar-plus') %> Create meeting</button></div>
 </form>
 <script>
   // Default: next Sunday 9pm, cutoff Friday 11:59pm.

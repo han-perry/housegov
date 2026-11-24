@@ -9,10 +9,10 @@
     </ol>
   </nav>
   <div class="d-flex gap-2">
-    <a class="btn btn-sm btn-outline-secondary" href="<%= base %>/docs/<%= doc.slug %>/history">History</a>
-    <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#embed">Embed</button>
+    <a class="btn btn-sm btn-outline-secondary" href="<%= base %>/docs/<%= doc.slug %>/history" aria-label="History" title="History"><%- icon('clock-history') %><span class="hg-label">History</span></a>
+    <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#embed" aria-label="Embed code" title="Embed code"><%- icon('code-slash') %><span class="hg-label">Embed</span></button>
     <% if (user && user.hasPermission(GOVPERMS.PROPOSE) && !rev) { %>
-      <form method="post" action="<%= base %>/docs/<%= doc.slug %>/amend"><button class="btn btn-sm btn-dark">Propose an amendment</button></form>
+      <form method="post" action="<%= base %>/docs/<%= doc.slug %>/amend"><button class="btn btn-sm btn-dark" aria-label="Propose an amendment" title="Propose an amendment"><%- icon('pencil-square') %><span class="hg-label">Propose an amendment</span></button></form>
     <% } %>
   </div>
 </div>

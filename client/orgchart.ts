@@ -34,6 +34,10 @@ function mount(container: HTMLElement) {
   if (data.length < 2) return;
   const domain = container.dataset.mailDomain || "";
   const details = document.getElementById("org-details");
+  // Compact = roles with no children of their own stack in a two-column grid
+  // under their parent instead of one long row. Much narrower for wide charts.
+  const pref = (() => { try { return localStorage.getItem("hg.org.compact"); } catch { return null; } })();
+  let compact = pref !== "0";
 
   const chart = new OrgChart<OrgDatum>()
     .container(container)
@@ -43,9 +47,9 @@ function mount(container: HTMLElement) {
     .nodeHeight((n: { data: OrgDatum }) => (n.data.root || n.data.heading ? 56 : 46 + Math.max(1, n.data.users.length) * 26))
     .childrenMargin(() => 56)
     .siblingsMargin(() => 22)
-    .compactMarginBetween(() => 22)
-    .compactMarginPair(() => 60)
-    .compact(false)
+    .compactMarginBetween(() => 18)
+    .compactMarginPair(() => 36)
+    .compact(compact)
     .initialExpandLevel(99)
     .linkUpdate(function (this: SVGPathElement) {
       this.setAttribute("stroke", "#a1a1aa");
@@ -72,6 +76,18 @@ function mount(container: HTMLElement) {
   on("org-fit", () => chart.fit());
   on("org-expand", () => chart.expandAll().fit());
   on("org-collapse", () => chart.collapseAll().fit());
+  const compactBtn = document.getElementById("org-compact");
+  const syncCompactBtn = () => {
+    compactBtn?.classList.toggle("active", compact);
+    compactBtn?.setAttribute("aria-pressed", String(compact));
+  };
+  syncCompactBtn();
+  on("org-compact", () => {
+    compact = !compact;
+    try { localStorage.setItem("hg.org.compact", compact ? "1" : "0"); } catch { /* private mode */ }
+    syncCompactBtn();
+    chart.compact(compact).render().fit();
+  });
   on("org-layout", () => {
     const next = (chart.layout() as string) === "top" ? "left" : "top";
     chart.layout(next).render().fit();

@@ -61,6 +61,7 @@ site.use((req, res, next) => {
 site.use("/static", express.static(path.join(config.root, "public")));
 const vendor: Record<string, string> = {
   bootstrap: "bootstrap/dist",
+  "bootstrap-icons": "bootstrap-icons/font",
   reveal: "reveal.js/dist",
   chartjs: "chart.js/dist",
   diff2html: "diff2html/bundles",
@@ -83,6 +84,9 @@ site.use((req, res, next) => {
     if (opts && ("base" in opts || "url" in opts)) throw new Error(`render("${view}"): "base" and "url" are reserved template locals`);
     return render(view, opts, cb);
   }) as typeof res.render;
+  // <%- icon("pencil") %> → decorative Bootstrap icon (hidden from screen readers;
+  // the button's text or aria-label carries the meaning).
+  res.locals.icon = (name: string) => `<i class="bi bi-${name.replace(/[^a-z0-9-]/g, "")}" aria-hidden="true"></i>`;
   res.locals.md = renderMd;
   res.locals.mdInline = renderMdInline;
   res.locals.config = config;
@@ -117,7 +121,13 @@ if (config.basePath) app.get("/", (req, res) => res.redirect(config.basePath + "
 app.use((req, res) => res.status(404).type("text").send("Not found"));
 const onError: ErrorRequestHandler = (err, req, res, _next) => {
   console.error(err);
-  res.status(err.status || 500).render("error", { title: "Something went wrong", message: err.expose ? err.message : "An unexpected error occurred." });
+  const status = err.status || 500;
+  const message = err.expose ? err.message : "An unexpected error occurred.";
+  // JSON callers get JSON. Errors raised before the site middleware (e.g. a
+  // malformed request body) have no template locals, so they get plain text.
+  if (req.accepts(["html", "json"]) === "json") return res.status(status).json({ error: message });
+  if (res.locals.base === undefined) return res.status(status).type("text").send(message);
+  res.status(status).render("error", { title: "Something went wrong", message });
 };
 app.use(onError);
 

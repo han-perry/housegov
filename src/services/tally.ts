@@ -22,6 +22,8 @@ export interface QuestionConfig {
   writeIn?: boolean;
   threshold?: number | null; // percent, e.g. 66.7
   required?: boolean;
+  /** Option id that adopts the question's amendment (choice questions only). */
+  adopt?: string | null;
 }
 export interface Question {
   id: number;
@@ -30,6 +32,7 @@ export interface Question {
   description?: string; // markdown
   options: Option[];
   config: QuestionConfig;
+  amendment_id?: number | null;
 }
 export type Answer = string | string[] | { writeIn: string };
 export interface Ballot {
@@ -201,4 +204,20 @@ export function tallyPoll(questions: Question[], ballots: Ballot[]): PollTally[]
     thresholdRequired: q.config.threshold === undefined || q.config.threshold === null ? null : Number(q.config.threshold),
     ...tallyQuestion(q, counted),
   }));
+}
+
+/**
+ * Does the question's amendment pass? The adopting option must be the clear
+ * leader and reach the threshold, or, with no threshold, more than half of
+ * the answers to this question. Blank answers don't count either way.
+ */
+export function amendmentOutcome(q: Question, t: QuestionTally) {
+  const required = q.config.threshold === undefined || q.config.threshold === null ? null : Number(q.config.threshold);
+  const rows = t.kind === "bars" ? t.rows : [];
+  const row = rows.find((r) => r.id === q.config.adopt);
+  const max = Math.max(0, ...rows.map((r) => r.count));
+  const leads = !!row && row.count > 0 && row.count === max && rows.filter((r) => r.count === max).length === 1;
+  const share = row?.share ?? 0;
+  const passes = required !== null ? leads && share >= required / 100 : share > 0.5;
+  return { adoptLabel: row?.label ?? optionLabel(q, q.config.adopt ?? ""), share, required, passes };
 }

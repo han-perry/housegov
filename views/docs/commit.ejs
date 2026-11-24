@@ -4,9 +4,9 @@
   <h1 class="h4 mt-1"><%= c.subject %></h1>
   <div class="meta"><%= c.author %> · <%= fmtDate(c.date) %> · <code><%= c.sha.slice(0, 7) %></code> · <a href="<%= base %>/docs/<%= doc.slug %>?rev=<%= c.sha %>">view document at this version</a></div>
 </div>
-<div class="btn-group btn-group-sm mb-2" role="group">
-  <button class="btn btn-outline-secondary active" data-fmt="line-by-line">Unified</button>
-  <button class="btn btn-outline-secondary" data-fmt="side-by-side">Side by side</button>
+<div class="btn-group btn-group-sm mb-2" role="group" aria-label="Diff layout">
+  <button class="btn btn-outline-secondary active" data-fmt="line-by-line" aria-label="Unified" title="Unified"><%- icon('list') %><span class="hg-label">Unified</span></button>
+  <button class="btn btn-outline-secondary" data-fmt="side-by-side" aria-label="Side by side" title="Side by side"><%- icon('layout-split') %><span class="hg-label">Side by side</span></button>
 </div>
 <div id="diff"></div>
 <textarea id="patch" hidden><%= patch %></textarea>

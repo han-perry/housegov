@@ -58,7 +58,7 @@ async function loadAmendment(req: Request) {
   const a = await db.get("SELECT a.*, d.title AS doc_title FROM amendments a JOIN docs d ON d.slug=a.doc_slug WHERE a.id=$1", [intParam(req.params.id)]);
   if (!a) return null;
   a.attachedTo = await db.get("SELECT p.id, p.title, p.decision FROM proposal_attachments pa JOIN proposals p ON p.id=pa.proposal_id WHERE pa.amendment_id=$1", [a.id]);
-  a.poll = await db.get("SELECT id, title, finalized FROM polls WHERE amendment_id=$1", [a.id]);
+  a.poll = await db.get("SELECT p.id, p.title, p.finalized, q.prompt, q.options, q.config FROM poll_questions q JOIN polls p ON p.id=q.poll_id WHERE q.amendment_id=$1", [a.id]);
   return a;
 }
 

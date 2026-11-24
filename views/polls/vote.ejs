@@ -11,12 +11,11 @@
       </div>
     </div>
     <div class="text-end">
-      <% if (resultsVisible) { %><a class="btn btn-sm btn-outline-secondary" href="<%= base %>/polls/<%= poll.id %>/results">Results &amp; ledger</a><% } %>
-      <% if (user && user.hasPermission(GOVPERMS.MANAGE)) { %><a class="btn btn-sm btn-outline-secondary" href="<%= base %>/polls/<%= poll.id %>/edit">Edit</a><% } %>
+      <% if (resultsVisible) { %><a class="btn btn-sm btn-outline-secondary" href="<%= base %>/polls/<%= poll.id %>/results" aria-label="Results &amp; ledger" title="Results &amp; ledger"><%- icon('bar-chart') %><span class="hg-label">Results &amp; ledger</span></a><% } %>
+      <% if (user && user.hasPermission(GOVPERMS.MANAGE)) { %><a class="btn btn-sm btn-outline-secondary" href="<%= base %>/polls/<%= poll.id %>/edit" aria-label="Edit poll" title="Edit poll"><%- icon('pencil') %><span class="hg-label">Edit</span></a><% } %>
     </div>
   </div>
   <% if (poll.description) { %><div class="content-serif mt-3"><%- md(poll.description) %></div><% } %>
-  <% if (poll.amendment) { %><div class="alert alert-light border small">If this passes, <a href="<%= base %>/docs/amendments/<%= poll.amendment.id %>"><%= poll.amendment.title %></a> will be applied to <a href="<%= base %>/docs/<%= poll.amendment.doc_slug %>"><%= poll.amendment.doc_slug %></a>.</div><% } %>
 
   <% if (poll.status !== 'open') { %>
     <div class="alert alert-secondary mt-3"><%= poll.status === 'upcoming' ? 'Voting has not opened yet.' : 'Voting has closed.' %></div>
@@ -33,7 +32,7 @@
         <div class="row g-2">
           <div class="col-sm-5"><input class="form-control font-mono" id="u-vote" placeholder="Vote ID" autocomplete="off"></div>
           <div class="col-sm-5"><input class="form-control font-mono" id="u-code" placeholder="Code" autocomplete="off"></div>
-          <div class="col-sm-2 d-grid"><button class="btn btn-dark" id="unlock">Open</button></div>
+          <div class="col-sm-2 d-grid"><button class="btn btn-dark" id="unlock"><%- icon('unlock') %> Open</button></div>
         </div>
       </div>
     <% } %>
@@ -49,6 +48,14 @@
               <% if (q.config.threshold !== null && q.config.threshold !== undefined) { %><span class="badge text-bg-light border align-self-start">Requires <%= q.config.threshold %>%</span><% } %>
             </div>
             <% if (q.description) { %><div class="question-desc content-serif"><%- md(q.description) %></div><% } %>
+            <% if (q.amendment) { const adopt = (q.options.find(o => o.id === q.config.adopt) || {}).label; const t = q.config.threshold; %>
+              <div class="amend-note small mb-2">
+                <%- icon('journal-text') %> This question decides
+                <a href="<%= base %>/docs/amendments/<%= q.amendment.id %>" target="_blank"><%= q.amendment.title %></a>
+                to <a href="<%= base %>/docs/<%= q.amendment.doc_slug %>" target="_blank"><%= q.amendment.doc_title %></a>.
+                It's applied if <b><%= adopt %></b> <%= t !== null && t !== undefined ? `leads with at least ${t}%` : 'gets more than half' %> of the answers to this question.
+              </div>
+            <% } %>
 
             <% if (q.type === 'text') { %>
               <textarea class="form-control" rows="3" data-text></textarea>
@@ -92,7 +99,7 @@
                 </div>
               <% } %>
               <% if (!multi) { %>
-                <button type="button" class="btn btn-link btn-sm px-0 text-secondary" data-clear="q<%= q.id %>">Clear selection</button>
+                <button type="button" class="btn btn-link btn-sm px-0 text-secondary" data-clear="q<%= q.id %>"><%- icon('x-circle') %> Clear selection</button>
               <% } %>
             <% } %>
           </div>
@@ -101,9 +108,9 @@
 
       <div id="ballot-errors" class="alert alert-danger d-none"></div>
       <div class="d-flex flex-wrap gap-2">
-        <button class="btn btn-dark" id="submit"><%= state === 'public-edit' ? 'Update my vote' : 'Cast my vote' %></button>
-        <button class="btn btn-outline-danger <%= state === 'public-edit' ? '' : 'd-none' %>" id="withdraw" type="button">Withdraw my vote</button>
-        <% if (poll.secret) { %><button class="btn btn-outline-secondary d-none" id="rotate" type="button">My code may be compromised: send a new one</button><% } %>
+        <button class="btn btn-dark" id="submit"><%- icon('send') %> <span id="submit-label"><%= state === 'public-edit' ? 'Update my vote' : 'Cast my vote' %></span></button>
+        <button class="btn btn-outline-danger <%= state === 'public-edit' ? '' : 'd-none' %>" id="withdraw" type="button"><%- icon('arrow-counterclockwise') %> Withdraw my vote</button>
+        <% if (poll.secret) { %><button class="btn btn-outline-secondary d-none" id="rotate" type="button"><%- icon('arrow-repeat') %> My code may be compromised: send a new one</button><% } %>
       </div>
       <p class="small text-secondary mt-2">You can change or withdraw your vote until the poll closes.</p>
     </form>
@@ -170,7 +177,7 @@
     function showErrors(msg) { const e = $('ballot-errors'); e.classList.toggle('d-none', !msg); e.innerText = msg || ''; }
     function editMode() {
       hasBallot = true;
-      $('submit').textContent = 'Update my vote';
+      $('submit-label').textContent = 'Update my vote';
       $('withdraw').classList.remove('d-none');
       $('rotate')?.classList.remove('d-none');
     }

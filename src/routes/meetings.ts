@@ -188,7 +188,9 @@ router.post("/:id/order", manage, load, async (req, res) => {
 router.get("/:id/state", load, async (req, res) => {
   const m = M(req);
   const slides = await meetings.buildSlides(m.id);
-  res.json({ status: m.status, current: Math.min(m.current_slide, slides.length - 1), slides, adhoc: await openAdhoc(m.id), minutes: req.user?.hasPermission([GOVPERMS.PRESENTATION, GOVPERMS.MANAGE]) ? m.minutes : undefined });
+  // Until the meeting is started everyone sits on the title slide.
+  const current = m.status === "live" ? Math.min(m.current_slide, slides.length - 1) : 0;
+  res.json({ status: m.status, current, slides, adhoc: await openAdhoc(m.id), minutes: req.user?.hasPermission([GOVPERMS.PRESENTATION, GOVPERMS.MANAGE]) ? m.minutes : undefined });
 });
 
 router.get("/:id/qr.svg", load, async (req, res) => {
@@ -207,17 +209,45 @@ router.get("/:id/live", load, (req, res) => res.render("meetings/live", { title:
 
 router.get("/:id/console", present, load, (req, res) => res.render("meetings/console", { title: `Console: ${M(req).title}`, m: M(req) }));
 
+// Opening the console or projector never starts a meeting: the presenter
+// presses "Start meeting". Before that, the console can click through slides
+// locally (rehearsal) without moving anyone else's screen.
+const NOT_LIVE = "The meeting hasn't started. Press Start meeting first.";
+
+router.post("/:id/start", present, load, async (req, res) => {
+  const m = M(req);
+  if (m.status === "completed") return res.status(409).json({ error: "This meeting was already adjourned." });
+  if (m.status !== "live") await db.run("UPDATE meetings SET status='live', current_slide=0 WHERE id=$1", [m.id]);
+  realtime.emit(room(m.id), "status", { status: "live" });
+  realtime.emit(room(m.id), "slide", { index: 0 });
+  res.json({ ok: true, status: "live" });
+});
+
+// Undo an accidental start: back to scheduled, any open vote is closed.
+router.post("/:id/unstart", present, load, async (req, res) => {
+  const m = M(req);
+  if (m.status !== "live") return res.status(409).json({ error: "The meeting isn't live." });
+  await db.run("UPDATE meetings SET status='scheduled', current_slide=0 WHERE id=$1", [m.id]);
+  await db.run("UPDATE adhoc_votes SET status='closed' WHERE meeting_id=$1 AND status='open'", [m.id]);
+  realtime.emit(room(m.id), "adhoc", null);
+  realtime.emit(room(m.id), "status", { status: "scheduled" });
+  realtime.emit(room(m.id), "slide", { index: 0 });
+  res.json({ ok: true, status: "scheduled" });
+});
+
 router.post("/:id/slide", present, load, async (req, res) => {
   const m = M(req);
+  if (m.status !== "live") return res.status(409).json({ error: NOT_LIVE });
   const slides = await meetings.buildSlides(m.id);
   const index = Math.max(0, Math.min(intParam(req.body.index) || 0, slides.length - 1));
-  await db.run("UPDATE meetings SET current_slide=$1, status=CASE WHEN status='scheduled' THEN 'live' ELSE status END WHERE id=$2", [index, m.id]);
+  await db.run("UPDATE meetings SET current_slide=$1 WHERE id=$2", [index, m.id]);
   realtime.emit(room(m.id), "slide", { index });
   res.json({ ok: true, index });
 });
 
 // Scroll a long slide on every projector by one step (or back to the top). Not persisted.
 router.post("/:id/scroll", present, load, (req, res) => {
+  if (M(req).status !== "live") return res.status(409).json({ error: NOT_LIVE });
   const step = req.body.step === "top" ? "top" : Math.sign(Number(req.body.step) || 0);
   realtime.emit(room(M(req).id), "scroll", { index: intParam(req.body.index), step });
   res.json({ ok: true });
@@ -242,6 +272,7 @@ router.post("/:id/adjourn", present, load, async (req, res) => {
 // ---- Ad hoc votes ----------------------------------------------------------
 router.post("/:id/adhoc", present, load, async (req, res) => {
   const m = M(req);
+  if (m.status !== "live") return res.status(409).json({ error: NOT_LIVE });
   await db.run("UPDATE adhoc_votes SET status='closed' WHERE meeting_id=$1 AND status='open'", [m.id]);
   // A vote can be called on a proposal on this meeting's agenda; its counts
   // are then recorded on the proposal when the vote closes.

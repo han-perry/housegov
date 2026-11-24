@@ -1,7 +1,7 @@
 import * as db from "../db";
 import * as ballots from "./ballots";
 import * as govdocs from "./govdocs";
-import { tallyPoll, WRITE_IN, type Answer, type Question } from "./tally";
+import { amendmentOutcome, tallyPoll, WRITE_IN, type Answer, type Question } from "./tally";
 
 export type PollStatus = "upcoming" | "open" | "closed";
 
@@ -14,7 +14,6 @@ export interface PollRow {
   closes_at: Date;
   show_live_results: boolean;
   proposal_id: number | null;
-  amendment_id: number | null;
   finalized: boolean;
   created_by: string;
   created_at: Date;
@@ -27,18 +26,31 @@ export function status(poll: { opens_at: Date; closes_at: Date }, now = new Date
 }
 
 export function questions(pollId: number): Promise<Question[]> {
-  return db.all<Question>("SELECT id,type,prompt,description,options,config FROM poll_questions WHERE poll_id=$1 ORDER BY sort, id", [pollId]);
+  return db.all<Question>("SELECT id,type,prompt,description,options,config,amendment_id FROM poll_questions WHERE poll_id=$1 ORDER BY sort, id", [pollId]);
+}
+
+export interface QuestionAmendment {
+  id: number;
+  title: string;
+  doc_slug: string;
+  doc_title: string;
+  status: string;
 }
 
 export async function get(id: number) {
   if (!Number.isInteger(id)) return null;
   const p = await db.get<PollRow>("SELECT * FROM polls WHERE id=$1", [id]);
   if (!p) return null;
+  const qs = await questions(id);
+  const ids = qs.map((q) => q.amendment_id).filter((x): x is number => !!x);
+  const rows = ids.length
+    ? await db.all<QuestionAmendment>("SELECT a.id,a.title,a.doc_slug,a.status,d.title AS doc_title FROM amendments a JOIN docs d ON d.slug=a.doc_slug WHERE a.id = ANY($1::int[])", [ids])
+    : [];
+  const byId = new Map(rows.map((a) => [a.id, a]));
   return {
     ...p,
-    questions: await questions(id),
+    questions: qs.map((q) => ({ ...q, amendment: q.amendment_id ? byId.get(q.amendment_id) ?? null : null })),
     status: status(p),
-    amendment: p.amendment_id ? await db.get("SELECT id,title,doc_slug,status FROM amendments WHERE id=$1", [p.amendment_id]) : null,
   };
 }
 export type Poll = NonNullable<Awaited<ReturnType<typeof get>>>;
@@ -50,7 +62,13 @@ export type Poll = NonNullable<Awaited<ReturnType<typeof get>>>;
  */
 export async function results(poll: Poll, { withText = false } = {}) {
   const all = await ballots.all(poll.id);
-  const tallies = tallyPoll(poll.questions, all).map((t) => (t.kind === "text" && !withText ? { ...t, responses: [], hidden: true } : t));
+  const tallies = tallyPoll(poll.questions, all).map((t) => {
+    const q = poll.questions.find((x) => x.id === t.questionId)!;
+    const out = t.kind === "text" && !withText ? { ...t, responses: [], hidden: true } : t;
+    // Questions that decide an amendment say so, with whether it's passing.
+    if (!q.amendment) return out;
+    return { ...out, amendment: { ...q.amendment, ...amendmentOutcome(q, t) } };
+  });
   return { tallies, ballotCount: all.length, counted: all.filter((b) => !b.excluded).length };
 }
 
@@ -95,21 +113,32 @@ export function validateAnswers(poll: Poll, raw: Record<string, unknown> | undef
 }
 
 /**
- * When a poll closes: if it carries a govdoc amendment, apply it when the
- * first choice question's "Yes" option met its threshold (or a simple majority).
+ * When a poll closes, each question that decides an amendment applies it if
+ * its adopting option won (tally.amendmentOutcome), and rejects it otherwise.
+ * Questions are independent; two amendments to the same document in one poll
+ * are applied in question order, and the second may need conflict resolution.
  */
 export async function finalize(poll: Poll) {
   if (poll.finalized || poll.status !== "closed") return null;
   const claimed = await db.run("UPDATE polls SET finalized=true WHERE id=$1 AND finalized=false", [poll.id]);
-  if (!claimed.rowCount || !poll.amendment_id) return null;
-  const q = poll.questions.find((x) => x.type === "choice");
-  const t = q && (await results(poll)).tallies.find((x) => x.questionId === q.id);
-  const yes = t && t.kind === "bars" ? t.rows.find((r) => /^(yes|yay|approve)$/i.test(r.label)) : undefined;
-  // Thresholds are judged on the leading option only; with none set, "Yes" needs a strict majority.
-  const passed = !!yes && (t!.thresholdRequired !== null ? !!yes.threshold?.met : yes.share > 0.5);
-  if (passed) return govdocs.applyAmendment(poll.amendment_id, { actor: "housegov", context: `Poll #${poll.id}` });
-  await db.run("UPDATE amendments SET status='rejected' WHERE id=$1 AND status<>'applied'", [poll.amendment_id]);
-  return { ok: false, rejected: true };
+  if (!claimed.rowCount) return null;
+  const decided = poll.questions.filter((q) => q.amendment_id);
+  if (!decided.length) return [];
+  const { tallies } = await results(poll);
+  const out: Array<{ amendmentId: number; questionId: number; passes: boolean; ok?: boolean; reason?: string }> = [];
+  for (const q of decided) {
+    const t = tallies.find((x) => x.questionId === q.id);
+    const passes = !!t && amendmentOutcome(q, t).passes;
+    const context = `Poll #${poll.id}, question "${q.prompt}"`;
+    if (passes) {
+      const r = await govdocs.applyAmendment(q.amendment_id!, { actor: "housegov", context });
+      out.push({ amendmentId: q.amendment_id!, questionId: q.id, passes, ok: r.ok, reason: r.ok ? undefined : r.reason });
+    } else {
+      await db.run("UPDATE amendments SET status='rejected' WHERE id=$1 AND status<>'applied'", [q.amendment_id]);
+      out.push({ amendmentId: q.amendment_id!, questionId: q.id, passes });
+    }
+  }
+  return out;
 }
 
 /** Run periodically: finalize polls whose deadline has passed. */

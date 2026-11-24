@@ -16,7 +16,7 @@
     <h1 class="h3 mb-1">Results: <%= poll.title %></h1>
     <div class="meta"><%= poll.status === 'closed' ? 'Final results' : 'Live results: voting is still open' %><% if (results) { %> · <span id="counts"><%= results.counted %> counted of <%= results.ballotCount %> ballots</span><% } %></div>
   </div>
-  <a class="btn btn-sm btn-outline-secondary" href="<%= base %>/polls/<%= poll.id %>">Back to poll</a>
+  <a class="btn btn-sm btn-outline-secondary" href="<%= base %>/polls/<%= poll.id %>" aria-label="Back to poll" title="Back to poll"><%- icon('arrow-left') %><span class="hg-label">Back to poll</span></a>
 </div>
 
 <% if (!visible) { %>
@@ -103,6 +103,14 @@
           } else {
             summary.innerHTML += rows.filter((r) => r.threshold).map((r) => ` · ${esc(r.label)} ${pct(r.share)}${thresholdBadge(r)}`).join('');
           }
+        }
+        if (t.amendment) {
+          // Final status once the poll is finalized, otherwise "passing / not passing" so far.
+          const a = t.amendment, link = `<a href="${hg.url('/docs/amendments/' + a.id)}">${esc(a.title)}</a>`;
+          const final = { applied: ['text-bg-success', 'Applied'], rejected: ['text-bg-secondary', 'Rejected'], conflict: ['text-bg-warning', 'Passed: merge conflict, docs manager needed'] }[a.status];
+          const badge = final ? `<span class="badge ${final[0]}">${final[1]}</span>` : `<span class="badge ${a.passes ? 'text-bg-success' : 'text-bg-light border'}">${a.passes ? 'passing so far' : 'not passing so far'}</span>`;
+          const rule = a.required !== null ? `${esc(a.adoptLabel)} leads with ≥ ${a.required}%` : `${esc(a.adoptLabel)} gets more than half`;
+          summary.innerHTML += `<div class="mt-1"><%- icon('journal-text') %> Decides ${link} (${esc(a.doc_title)}) if ${rule}: ${badge}</div>`;
         }
         const labels = rows.map((r) => r.label);
         const values = rows.map((r) => r.count);

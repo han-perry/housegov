@@ -8,8 +8,8 @@
         <div class="meta"><%= c.author %> · <%= fmtDate(c.date) %> · <code><%= c.sha.slice(0, 7) %></code><%= i === 0 ? ' · current' : '' %></div>
       </div>
       <div class="btn-group btn-group-sm">
-        <a class="btn btn-outline-secondary" href="<%= base %>/docs/<%= doc.slug %>/commits/<%= c.sha %>">Changes</a>
-        <a class="btn btn-outline-secondary" href="<%= base %>/docs/<%= doc.slug %>?rev=<%= c.sha %>">View this version</a>
+        <a class="btn btn-outline-secondary" href="<%= base %>/docs/<%= doc.slug %>/commits/<%= c.sha %>" aria-label="Changes" title="Changes"><%- icon('file-diff') %><span class="hg-label">Changes</span></a>
+        <a class="btn btn-outline-secondary" href="<%= base %>/docs/<%= doc.slug %>?rev=<%= c.sha %>" aria-label="View this version" title="View this version"><%- icon('eye') %><span class="hg-label">View this version</span></a>
       </div>
     </div>
   <% }) %>

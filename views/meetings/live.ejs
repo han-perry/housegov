@@ -1,7 +1,7 @@
 <%- include('../partials/head') %>
 <div style="max-width: 40rem" class="mx-auto">
   <div class="d-flex justify-content-between align-items-center mb-2">
-    <div class="meta"><span id="dot" class="text-danger">●</span> Live: <%= m.title %></div>
+    <div class="meta"><span id="dot" class="text-danger"><%- icon('broadcast') %></span> <span id="state-label"><%= m.status === 'live' ? 'Live' : 'Not started' %></span>: <%= m.title %></div>
     <div class="meta" id="pos"></div>
   </div>
 
@@ -17,8 +17,8 @@
         <p class="small text-secondary mb-0">You aren't eligible to vote on this.</p>
       <% } else { %>
         <div class="clicker d-grid gap-2" style="grid-template-columns: 1fr 1fr;">
-          <button class="btn btn-outline-success" data-choice="yay">Yay</button>
-          <button class="btn btn-outline-danger" data-choice="nay">Nay</button>
+          <button class="btn btn-outline-success" data-choice="yay"><%- icon('hand-thumbs-up') %> Yay</button>
+          <button class="btn btn-outline-danger" data-choice="nay"><%- icon('hand-thumbs-down') %> Nay</button>
         </div>
         <div class="small mt-2 text-secondary" id="my-choice"></div>
       <% } %>
@@ -31,12 +31,15 @@
 <script>
   (() => {
     const MID = <%= m.id %>;
-    let slides = [], current = 0, adhoc = null;
+    let slides = [], current = 0, adhoc = null, status = <%- JSON.stringify(m.status) %>;
 
     function renderSlide() {
       const s = slides[current];
-      document.getElementById('slide').innerHTML = s ? s.html : '<p class="text-secondary">Waiting for the meeting to start…</p>';
-      document.getElementById('pos').textContent = slides.length ? `${current + 1} / ${slides.length}` : '';
+      const waiting = status === 'scheduled';
+      document.getElementById('state-label').textContent = status === 'live' ? 'Live' : status === 'completed' ? 'Adjourned' : 'Not started';
+      document.getElementById('slide').innerHTML = (waiting ? '<p class="alert alert-light border small mb-3"><%- icon('hourglass-split') %> The meeting hasn\'t started yet. This page will follow along once it does.</p>' : '')
+        + (s ? s.html : '');
+      document.getElementById('pos').textContent = slides.length && !waiting ? `${current + 1} / ${slides.length}` : '';
     }
     function renderAdhoc() {
       const card = document.getElementById('adhoc-card');
@@ -47,7 +50,7 @@
     }
     async function load() {
       const st = await (await fetch(hg.url(`/meetings/${MID}/state`))).json();
-      slides = st.slides; current = st.current; adhoc = st.adhoc;
+      slides = st.slides; current = st.current; adhoc = st.adhoc; status = st.status;
       renderSlide(); renderAdhoc();
     }
 
@@ -65,6 +68,7 @@
     socket.on('disconnect', () => { document.getElementById('dot').className = 'text-secondary'; });
     socket.on('slide', ({ index }) => { current = index; renderSlide(); });
     socket.on('agenda', load);
+    socket.on('status', load);
     socket.on('adhoc', (v) => {
       if (!v || !adhoc || v.id !== adhoc.id) { document.querySelectorAll('[data-choice]').forEach((x) => x.classList.remove('active')); const mc = document.getElementById('my-choice'); if (mc) mc.textContent = ''; }
       adhoc = v; renderAdhoc();

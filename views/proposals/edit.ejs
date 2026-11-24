@@ -27,7 +27,7 @@
   <label class="form-label fw-medium">Official full text</label>
   <textarea name="final_text" hidden><%= p.final_text %></textarea>
   <div data-md-editor="final_text" data-height="420px"></div>
-  <div class="mt-3"><button class="btn btn-dark">Save changes</button> <a href="<%= url(returnTo) %>" class="btn btn-link">Cancel</a></div>
+  <div class="mt-3"><button class="btn btn-dark"><%- icon('check-lg') %> Save changes</button> <a href="<%= url(returnTo) %>" class="btn btn-link">Cancel</a></div>
 </form>
 <script>
   (() => {

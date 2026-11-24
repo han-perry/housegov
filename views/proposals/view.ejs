@@ -60,23 +60,23 @@
       <div class="card mb-3"><div class="card-body">
         <h2 class="h6">House Chair tools</h2>
         <% if (p.status === 'open' && upcoming) { %>
-          <form method="post" action="<%= base %>/proposals/<%= p.id %>/agenda" class="mb-2"><button class="btn btn-sm btn-dark w-100">Add to agenda: <%= upcoming.title %></button></form>
+          <form method="post" action="<%= base %>/proposals/<%= p.id %>/agenda" class="mb-2"><button class="btn btn-sm btn-dark w-100"><%- icon('calendar-plus') %> Add to agenda: <%= upcoming.title %></button></form>
         <% } %>
-        <a href="<%= base %>/proposals/<%= p.id %>/edit" class="btn btn-sm btn-outline-secondary w-100 mb-2">Edit summary / official text / funding</a>
+        <a href="<%= base %>/proposals/<%= p.id %>/edit" class="btn btn-sm btn-outline-secondary w-100 mb-2"><%- icon('pencil') %> Edit summary / official text / funding</a>
         <% if (p.status !== 'dismissed' && !p.decision) { %>
           <form method="post" action="<%= base %>/proposals/<%= p.id %>/dismiss" class="mb-2">
             <input name="reason" class="form-control form-control-sm mb-1" placeholder="Reason for dismissal" required>
-            <button class="btn btn-sm btn-outline-warning w-100">Dismiss (stays logged)</button>
+            <button class="btn btn-sm btn-outline-warning w-100"><%- icon('archive') %> Dismiss (stays logged)</button>
           </form>
         <% } else if (p.status === 'dismissed') { %>
-          <form method="post" action="<%= base %>/proposals/<%= p.id %>/restore" class="mb-2"><button class="btn btn-sm btn-outline-secondary w-100">Restore</button></form>
+          <form method="post" action="<%= base %>/proposals/<%= p.id %>/restore" class="mb-2"><button class="btn btn-sm btn-outline-secondary w-100"><%- icon('arrow-counterclockwise') %> Restore</button></form>
         <% } %>
         <details>
           <summary class="small text-danger">Permanently delete…</summary>
           <form method="post" action="<%= base %>/proposals/<%= p.id %>/delete" class="mt-2">
             <div class="small text-secondary mb-1">For offensive content or cleanup. This removes the record entirely. Type <b><%= p.id %></b> to confirm.</div>
             <input name="confirm" class="form-control form-control-sm mb-1" autocomplete="off">
-            <button class="btn btn-sm btn-danger w-100">Delete forever</button>
+            <button class="btn btn-sm btn-danger w-100"><%- icon('trash') %> Delete forever</button>
           </form>
         </details>
       </div></div>

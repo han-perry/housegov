@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="<%= base %>/vendor/bootstrap/css/bootstrap.min.css">
+  <link rel="stylesheet" href="<%= base %>/vendor/bootstrap-icons/bootstrap-icons.min.css">
   <% if (locals.useEditor) { %><link rel="stylesheet" href="<%= base %>/static/build/editor.css"><% } %>
   <% if (locals.useDiff) { %><link rel="stylesheet" href="<%= base %>/vendor/diff2html/css/diff2html.min.css"><% } %>
   <link rel="stylesheet" href="<%= base %>/static/css/app.css">
@@ -15,29 +16,28 @@
   <% if (typeof extraHead !== 'undefined') { %><%- extraHead %><% } %>
 </head>
 <body>
-<nav class="navbar navbar-expand-md hg-nav">
-  <div class="container">
-    <a class="navbar-brand" href="<%= base %>/">HouseGov</a>
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav" aria-label="Menu"><span class="navbar-toggler-icon"></span></button>
-    <div class="collapse navbar-collapse" id="nav">
-      <ul class="navbar-nav me-auto">
-        <% const nav = [['/proposals','Proposals'],['/meetings','Meetings'],['/polls','Elections & Votes'],['/docs','Policies'],['/orgchart','Org Chart']]; %>
-        <% nav.forEach(([href, label]) => { %>
-          <li class="nav-item"><a class="nav-link <%= path.startsWith(href) ? 'active' : '' %>" href="<%= base + href %>"><%= label %></a></li>
-        <% }) %>
-      </ul>
-      <ul class="navbar-nav">
-        <% if (user && user.hasPermission(GOVPERMS.PROPOSE)) { %>
-          <li class="nav-item"><a class="btn btn-sm btn-dark me-2" href="<%= base %>/proposals/new">Submit proposal</a></li>
-        <% } %>
-        <% if (user) { %>
-          <li class="nav-item"><span class="navbar-text small"><%= user.username %></span></li>
-        <% } else { %>
-          <li class="nav-item"><a class="nav-link" href="<%= base %>/dev">Sign in</a></li>
-        <% } %>
-        <% if (config.devAuth) { %><li class="nav-item"><a class="nav-link small text-danger" href="<%= base %>/dev">dev</a></li><% } %>
-      </ul>
-    </div>
+<%# Desktop: icon + text. Narrow screens: icons only, as a tab row under the
+    brand (no burger menu). Labels stay in the accessibility tree either way. %>
+<nav class="navbar navbar-expand hg-nav" aria-label="Main">
+  <div class="container hg-nav-inner">
+    <a class="navbar-brand" href="<%= base %>/"><%- icon('bank2') %> HouseGov</a>
+    <ul class="navbar-nav hg-nav-main">
+      <% const nav = [['/proposals','Proposals','file-earmark-text'],['/meetings','Meetings','calendar-event'],['/polls','Elections & Votes','check2-square'],['/docs','Policies','journal-text'],['/orgchart','Org Chart','diagram-3']]; %>
+      <% nav.forEach(([href, label, ic]) => { const on = path.startsWith(href); %>
+        <li class="nav-item"><a class="nav-link <%= on ? 'active' : '' %>" href="<%= base + href %>" title="<%= label %>" <%- on ? 'aria-current="page"' : '' %>><%- icon(ic) %><span class="hg-label"><%= label %></span></a></li>
+      <% }) %>
+    </ul>
+    <ul class="navbar-nav hg-nav-user align-items-center">
+      <% if (user && user.hasPermission(GOVPERMS.PROPOSE)) { %>
+        <li class="nav-item"><a class="btn btn-sm btn-dark me-2" href="<%= base %>/proposals/new" title="Submit proposal" aria-label="Submit proposal"><%- icon('plus-lg') %><span class="hg-label">Submit proposal</span></a></li>
+      <% } %>
+      <% if (user) { %>
+        <li class="nav-item"><span class="navbar-text small" title="Signed in as <%= user.username %>"><%- icon('person-circle') %><span class="hg-label"><span class="visually-hidden">Signed in as </span><%= user.username %></span></span></li>
+      <% } else { %>
+        <li class="nav-item"><a class="nav-link" href="<%= base %>/dev" title="Sign in"><%- icon('box-arrow-in-right') %><span class="hg-label">Sign in</span></a></li>
+      <% } %>
+      <% if (config.devAuth) { %><li class="nav-item"><a class="nav-link small text-danger" href="<%= base %>/dev" title="Dev login switcher" aria-label="Dev login switcher"><%- icon('bug') %><span class="hg-label">dev</span></a></li><% } %>
+    </ul>
   </div>
 </nav>
 <main class="container py-4">

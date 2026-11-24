@@ -1,7 +1,7 @@
 <%- include('../partials/head') %>
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h1 class="h3 mb-0">Elections &amp; Votes</h1>
-  <% if (user && user.hasPermission(GOVPERMS.MANAGE)) { %><a class="btn btn-dark" href="<%= base %>/polls/new">New poll</a><% } %>
+  <% if (user && user.hasPermission(GOVPERMS.MANAGE)) { %><a class="btn btn-dark" href="<%= base %>/polls/new" aria-label="New poll" title="New poll"><%- icon('plus-lg') %><span class="hg-label">New poll</span></a><% } %>
 </div>
 <% const groups = [['open', 'Open now'], ['upcoming', 'Upcoming'], ['closed', 'Closed']]; %>
 <% groups.forEach(([key, label]) => { const list = rows.filter(r => r.status === key); if (!list.length) return; %>

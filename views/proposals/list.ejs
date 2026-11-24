@@ -5,7 +5,7 @@
 %>
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h1 class="h3 mb-0">Proposals</h1>
-  <% if (user && user.hasPermission(GOVPERMS.PROPOSE)) { %><a href="<%= base %>/proposals/new" class="btn btn-dark">Submit proposal</a><% } %>
+  <% if (user && user.hasPermission(GOVPERMS.PROPOSE)) { %><a href="<%= base %>/proposals/new" class="btn btn-dark" aria-label="Submit proposal" title="Submit proposal"><%- icon('plus-lg') %><span class="hg-label">Submit proposal</span></a><% } %>
 </div>
 
 <form class="row g-2 mb-3" method="get">
@@ -22,7 +22,7 @@
       <% Object.entries(TYPES).forEach(([k, t]) => { %><option value="<%= k %>" <%= type === k ? 'selected' : '' %>><%= t.label %></option><% }) %>
     </select>
   </div>
-  <div class="col-md-1 d-grid"><button class="btn btn-outline-secondary">Go</button></div>
+  <div class="col-md-1 d-grid"><button class="btn btn-outline-secondary" aria-label="Search" title="Search"><%- icon('search') %><span class="hg-label">Go</span></button></div>
 </form>
 
 <p class="meta"><%= total %> proposal<%= total === 1 ? '' : 's' %><%= q ? ` matching "${q}"` : '' %></p>

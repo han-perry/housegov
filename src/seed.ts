@@ -88,7 +88,7 @@ export async function seedIfEmpty(): Promise<void> {
     "INSERT INTO proposals(author,title,type,summary,full_text,final_text,status,decision,meeting_id) VALUES ('erin','Snacks for study break','fundrequest','Snacks.','Allocate $60 for snacks.','Allocate $60 for snacks.','decided','APPROVED',$1) RETURNING id",
     [past.rows[0].id]
   );
-  await db.run("INSERT INTO proposal_attachments(proposal_id,kind,amount,final_amount,account) VALUES ($1,'funding',60,60,'discretionary')", [old.rows[0].id]);
+  await db.run("INSERT INTO proposal_attachments(proposal_id,kind,amount,final_amount,account_number) VALUES ($1,'funding',60,60,NULL)", [old.rows[0].id]);
   await db.run("INSERT INTO agenda_items(meeting_id,sort,kind,proposal_id) VALUES ($1,1,'proposal',$2)", [past.rows[0].id, old.rows[0].id]);
 
   // A draft amendment for perryh.
