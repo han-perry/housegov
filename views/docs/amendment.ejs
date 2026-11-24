@@ -1,0 +1,88 @@
+<%- include('../partials/head', { useEditor: editable, useDiff: true }) %>
+<%
+  const badge = { draft: 'secondary', submitted: 'primary', applied: 'success', rejected: 'danger', conflict: 'warning' }[a.status];
+%>
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+  <div>
+    <a href="/docs/<%= a.doc_slug %>" class="small">← <%= a.doc_title %></a>
+    <h1 class="h4 mt-1 mb-0">Amendment #<%= a.id %>
+      <span class="badge text-bg-<%= badge %> align-middle fs-6"><%= a.status %></span>
+    </h1>
+    <div class="meta">by <%= a.author %> · started <%= fmtDate(a.created_at) %> · based on <code><%= a.base_commit.slice(0, 7) %></code></div>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    <% if (a.status === 'draft' && user && user.username === a.author && user.hasPermission(GOVPERMS.PROPOSE)) { %>
+      <a class="btn btn-sm btn-dark" href="/proposals/new?amendment=<%= a.id %>">Attach to a new proposal</a>
+    <% } %>
+    <% if (editable && behind) { %>
+      <form method="post" action="/docs/amendments/<%= a.id %>/rebase"><button class="btn btn-sm btn-outline-secondary" title="The document changed since this draft was started">Update to latest document</button></form>
+    <% } %>
+    <% if (canApply) { %>
+      <form method="post" action="/docs/amendments/<%= a.id %>/apply" onsubmit="return confirm('Apply this approved amendment to the document now?')"><button class="btn btn-sm btn-success">Apply approved amendment</button></form>
+    <% } %>
+    <% if (editable) { %>
+      <form method="post" action="/docs/amendments/<%= a.id %>/delete" onsubmit="return confirm('Delete this amendment?')"><button class="btn btn-sm btn-outline-danger">Delete</button></form>
+    <% } %>
+  </div>
+</div>
+
+<% if (a.attachedTo) { %><div class="alert alert-light border small">Attached to proposal <a href="/proposals/<%= a.attachedTo.id %>">#<%= a.attachedTo.id %>: <%= a.attachedTo.title %></a><%= a.attachedTo.decision ? ` (${a.attachedTo.decision})` : '' %>.</div><% } %>
+<% if (a.poll) { %><div class="alert alert-light border small">Will be applied if <a href="/polls/<%= a.poll.id %>"><%= a.poll.title %></a> passes.</div><% } %>
+<% if (a.status === 'conflict') { %><div class="alert alert-warning small">The document changed in a way that conflicts with this amendment. In each block, the part between <code>&lt;&lt;&lt;&lt;&lt;&lt;&lt; current</code> and <code>=======</code> is the document as it is now; the part after <code>=======</code> up to <code>&gt;&gt;&gt;&gt;&gt;&gt;&gt; amendment</code> is this amendment's version. Edit the text so it says what the House approved and delete the markers. It saves automatically<%= (a.attachedTo && a.attachedTo.decision === 'APPROVED') || (a.poll && a.poll.finalized) ? ', then press "Apply approved amendment"' : '' %>.</div><% } %>
+<% if (!editable && a.status === 'submitted') { %><div class="alert alert-light border small">This amendment is locked because it's attached to a proposal or vote. Docs managers can still edit it (e.g. after a motion to amend the wording).</div><% } %>
+
+<% if (editable) { %>
+  <div class="row g-3">
+    <div class="col-xl-6">
+      <input class="form-control fw-medium mb-2" id="a-title" value="<%= a.title %>" aria-label="Amendment title">
+      <textarea name="content" hidden><%= a.content %></textarea>
+      <div data-md-editor="content" data-mode="markdown" data-height="560px"></div>
+      <div class="meta mt-1" id="saved">All changes saved</div>
+    </div>
+    <div class="col-xl-6">
+      <div class="d-flex justify-content-between"><h2 class="h6">Changes from the current version</h2><span class="meta" id="stats"></span></div>
+      <div id="diff"></div>
+    </div>
+  </div>
+<% } else { %>
+  <h2 class="h5"><%= a.title %></h2>
+  <div id="diff"></div>
+<% } %>
+
+<textarea id="base" hidden><%= base %></textarea>
+<textarea id="patch" hidden><%= patch %></textarea>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const el = document.getElementById('diff');
+    const draw = (patch) => new Diff2HtmlUI(el, patch, { drawFileList: false, outputFormat: 'line-by-line', matching: 'words', diffStyle: 'word' }).draw();
+    <% if (!editable) { %>
+      draw(document.getElementById('patch').value);
+    <% } else { %>
+      const base = document.getElementById('base').value;
+      const ta = document.querySelector('textarea[name=content]');
+      const title = document.getElementById('a-title');
+      const saved = document.getElementById('saved');
+      const nl = (s) => s.endsWith('\n') ? s : s + '\n';
+      const redraw = () => {
+        const patch = Diff.createTwoFilesPatch('a/<%= a.doc_slug %>.md', 'b/<%= a.doc_slug %>.md', nl(base), nl(ta.value));
+        const changes = Diff.diffLines(nl(base), nl(ta.value));
+        const add = changes.filter((c) => c.added).reduce((n, c) => n + c.count, 0), del = changes.filter((c) => c.removed).reduce((n, c) => n + c.count, 0);
+        document.getElementById('stats').textContent = `+${add} −${del} lines`;
+        if (add + del === 0) el.innerHTML = '<p class="text-secondary small">No changes yet. Edit the document on the left.</p>'; else draw(patch);
+      };
+      let t = null;
+      const save = async () => {
+        try {
+          const r = await hg.postJSON('/docs/amendments/<%= a.id %>', { title: title.value, content: ta.value }, 'PUT');
+          saved.textContent = 'Saved ' + new Date(r.savedAt).toLocaleTimeString();
+          if (r.status !== '<%= a.status %>') location.reload();
+        } catch (e) { saved.textContent = 'Save failed: ' + e.message; }
+      };
+      const changed = () => { saved.textContent = 'Saving…'; redraw(); clearTimeout(t); t = setTimeout(save, 1000); };
+      ta.addEventListener('input', changed);
+      title.addEventListener('input', changed);
+      redraw();
+    <% } %>
+  });
+</script>
+<%- include('../partials/foot', { useEditor: editable, useDiff: true }) %>

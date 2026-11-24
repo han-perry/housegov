@@ -1,0 +1,75 @@
+<%- include('../partials/head') %>
+<div style="max-width: 40rem" class="mx-auto">
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <div class="meta"><span id="dot" class="text-danger">●</span> Live: <%= m.title %></div>
+    <div class="meta" id="pos"></div>
+  </div>
+
+  <div class="card shadow-sm mb-3"><div class="card-body live-slide" id="slide">Loading…</div></div>
+
+  <div class="card border-dark mb-3 d-none" id="adhoc-card">
+    <div class="card-body">
+      <div class="meta text-uppercase">Vote now</div>
+      <h2 class="h5" id="adhoc-q"></h2>
+      <% if (!user) { %>
+        <p class="small text-secondary mb-0">Sign in to vote.</p>
+      <% } else if (!user.hasPermission(GOVPERMS.VOTE)) { %>
+        <p class="small text-secondary mb-0">You aren't eligible to vote on this.</p>
+      <% } else { %>
+        <div class="clicker d-grid gap-2" style="grid-template-columns: 1fr 1fr;">
+          <button class="btn btn-outline-success" data-choice="yay">Yay</button>
+          <button class="btn btn-outline-danger" data-choice="nay">Nay</button>
+        </div>
+        <div class="small mt-2 text-secondary" id="my-choice"></div>
+      <% } %>
+      <div class="small mt-2">Yay <b id="t-yay">0</b> · Nay <b id="t-nay">0</b></div>
+    </div>
+  </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  (() => {
+    const MID = <%= m.id %>;
+    let slides = [], current = 0, adhoc = null;
+
+    function renderSlide() {
+      const s = slides[current];
+      document.getElementById('slide').innerHTML = s ? s.html : '<p class="text-secondary">Waiting for the meeting to start…</p>';
+      document.getElementById('pos').textContent = slides.length ? `${current + 1} / ${slides.length}` : '';
+    }
+    function renderAdhoc() {
+      const card = document.getElementById('adhoc-card');
+      if (!adhoc) { card.classList.add('d-none'); return; }
+      card.classList.remove('d-none');
+      document.getElementById('adhoc-q').textContent = adhoc.question;
+      for (const k of ['yay', 'nay']) document.getElementById('t-' + k).textContent = adhoc.tally[k];
+    }
+    async function load() {
+      const st = await (await fetch(`/meetings/${MID}/state`)).json();
+      slides = st.slides; current = st.current; adhoc = st.adhoc;
+      renderSlide(); renderAdhoc();
+    }
+
+    document.querySelectorAll('[data-choice]').forEach((b) => b.addEventListener('click', async () => {
+      if (!adhoc) return;
+      try {
+        await hg.postJSON(`/meetings/${MID}/adhoc/${adhoc.id}/respond`, { choice: b.dataset.choice });
+        document.querySelectorAll('[data-choice]').forEach((x) => x.classList.toggle('active', x === b));
+        document.getElementById('my-choice').textContent = `You voted ${b.dataset.choice}. You can change it until voting closes.`;
+      } catch (e) { alert(e.message); }
+    }));
+
+    const socket = io();
+    socket.on('connect', () => { socket.emit('join', `meeting:${MID}`); document.getElementById('dot').className = 'text-danger'; load(); });
+    socket.on('disconnect', () => { document.getElementById('dot').className = 'text-secondary'; });
+    socket.on('slide', ({ index }) => { current = index; renderSlide(); });
+    socket.on('agenda', load);
+    socket.on('adhoc', (v) => {
+      if (!v || !adhoc || v.id !== adhoc.id) { document.querySelectorAll('[data-choice]').forEach((x) => x.classList.remove('active')); const mc = document.getElementById('my-choice'); if (mc) mc.textContent = ''; }
+      adhoc = v; renderAdhoc();
+    });
+    socket.on('adjourned', () => { document.getElementById('slide').innerHTML = '<h2>Meeting adjourned</h2><p>Thanks for coming!</p>'; });
+  })();
+</script>
+<%- include('../partials/foot') %>

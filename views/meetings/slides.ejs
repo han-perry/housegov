@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= m.title %> · Slides</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/vendor/reveal/reveal.css">
+  <link rel="stylesheet" href="/vendor/reveal/theme/white.css">
+  <style>
+    .reveal { font-family: "IBM Plex Serif", Georgia, serif; font-size: 30px; }
+    .reveal h1, .reveal h2, .reveal h3 { font-family: "IBM Plex Sans", sans-serif; text-transform: none; letter-spacing: -0.01em; }
+    .reveal h1 { font-size: 2.2em; } .reveal h2 { font-size: 1.5em; }
+    .reveal .slides section { text-align: left; }
+    /* Long proposals scroll inside the slide instead of being clipped. */
+    .reveal .slides > section { height: 100%; overflow-y: auto; padding: 24px 40px 140px; box-sizing: border-box; scrollbar-width: thin; }
+    .reveal .slides > section[data-kind="title"], .reveal .slides > section[data-kind="end"] { padding-top: 220px; }
+    .reveal .slides section[data-kind="title"], .reveal .slides section[data-kind="end"] { text-align: center; }
+    .reveal ul, .reveal ol { display: block; }
+    .slide-byline, .slide-notes { font-size: .7em; color: #52525b; }
+    .slide-funding { font-size: .85em; }
+    .slide-summary + .slide-fulltext { margin-top: 1em; border-top: 2px solid #e4e4e7; padding-top: .5em; }
+    .slide-fulltext h3 { font-size: .75em; text-transform: uppercase; letter-spacing: .05em; color: #71717a; }
+    .slide-fulltext { font-size: .8em; }
+    .slide-decision { font-family: "IBM Plex Sans", sans-serif; color: #166534; }
+    .qr { position: fixed; right: 14px; bottom: 14px; z-index: 30; background: #fff; padding: 6px; border-radius: 6px; box-shadow: 0 1px 4px #0003; text-align: center; font: 11px "IBM Plex Sans", sans-serif; color: #3f3f46; }
+    .qr img { width: 110px; height: 110px; display: block; margin: 0 auto; }
+    .qr .short-url { font-size: 13px; margin-top: 3px; color: #18181b; }
+    .qr .short-url b { font-family: "IBM Plex Mono", ui-monospace, monospace; font-weight: 600; }
+    .adhoc { position: fixed; left: 50%; transform: translateX(-50%); bottom: 18px; z-index: 30; background: #18181b; color: #fff; border-radius: 10px; padding: 12px 22px; font: 20px "IBM Plex Sans", sans-serif; display: none; }
+    .adhoc b { font-size: 26px; margin: 0 .4em; }
+    /* Cue for the room that a long slide continues below. */
+    .more { position: fixed; left: 0; right: 0; bottom: 0; height: 90px; z-index: 20; pointer-events: none; display: none;
+      background: linear-gradient(to bottom, #fff0, #fff 75%); }
+    .more span { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); font: 600 15px "IBM Plex Sans", sans-serif; color: #52525b;
+      background: #f4f4f5; border: 1px solid #e4e4e7; border-radius: 999px; padding: 4px 14px; }
+  </style>
+</head>
+<body>
+  <div class="reveal"><div class="slides" id="slides"></div></div>
+  <div class="qr"><img src="/meetings/<%= m.id %>/qr.svg" alt="QR code for live view">Scan to follow &amp; vote<div class="short-url">or go to <b><%= shortLive %></b></div></div>
+  <div class="adhoc" id="adhoc"></div>
+  <div class="more" id="more"><span>▼ continues below</span></div>
+
+  <script src="/vendor/reveal/reveal.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    // The projector follows the presenter console. If you have presentation
+    // permission, arrow keys here also drive everyone's view.
+    const canDrive = <%= !!(user && user.hasPermission([GOVPERMS.PRESENTATION, GOVPERMS.MANAGE])) %>;
+    const MID = <%= m.id %>;
+    let suppress = false;
+
+    async function load() {
+      const state = await (await fetch(`/meetings/${MID}/state`)).json();
+      document.getElementById('slides').innerHTML = state.slides
+        .map((s) => `<section data-kind="${s.kind}">${s.html}</section>`).join('');
+      return state;
+    }
+
+    function showAdhoc(v) {
+      const el = document.getElementById('adhoc');
+      if (!v) { el.style.display = 'none'; return; }
+      el.innerHTML = `${hgEsc(v.question)} &nbsp; Yay<b>${v.tally.yay}</b> Nay<b>${v.tally.nay}</b>`;
+      el.style.display = 'block';
+    }
+    const hgEsc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
+    // Scrolling is sent as steps ("down one screen-ish") rather than positions,
+    // so every screen moves the same amount relative to its own size.
+    const current = () => document.querySelector('#slides > section.present');
+    function scrollStep(sec, step) {
+      if (!sec) return;
+      // Step from where the last step was headed, so rapid presses add up
+      // instead of interrupting each other's smooth scroll.
+      const from = sec._target ?? sec.scrollTop;
+      const max = sec.scrollHeight - sec.clientHeight;
+      sec._target = step === 'top' ? 0 : Math.max(0, Math.min(max, from + step * sec.clientHeight * 0.6));
+      sec.scrollTo({ top: sec._target, behavior: 'smooth' });
+    }
+    document.addEventListener('scrollend', (e) => { if (e.target._target !== undefined) e.target._target = undefined; }, true);
+    function updateMore() {
+      const sec = current();
+      const more = sec && sec.scrollHeight - sec.clientHeight - sec.scrollTop > 8;
+      document.getElementById('more').style.display = more ? 'block' : 'none';
+    }
+    const sendStep = (step) => fetch(`/meetings/${MID}/scroll`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ index: deck.getIndices().h, step }) });
+    let deck;
+
+    (async () => {
+      const state = await load();
+      // Driving from this window: Up/Down/Space scroll a long slide on every screen.
+      const key = (step) => () => sendStep(step);
+      deck = new Reveal({
+        hash: false, controls: canDrive, progress: true, touch: canDrive, transition: 'slide', width: 1280, height: 720, center: false,
+        keyboard: canDrive ? { 38: key(-1), 40: key(1), 32: key(1) } : false,
+      });
+      await deck.initialize();
+      deck.slide(state.current);
+      showAdhoc(state.adhoc);
+      updateMore();
+
+      deck.on('slidechanged', (e) => {
+        updateMore();
+        if (suppress || !canDrive) return;
+        fetch(`/meetings/${MID}/slide`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ index: e.indexh }) });
+      });
+      document.getElementById('slides').addEventListener('scroll', updateMore, true);
+      window.addEventListener('resize', updateMore);
+
+      const socket = io();
+      socket.on('connect', () => socket.emit('join', `meeting:${MID}`));
+      socket.on('slide', ({ index }) => { suppress = true; deck.slide(index); suppress = false; });
+      socket.on('agenda', async () => { const i = deck.getIndices().h; await load(); deck.sync(); suppress = true; deck.slide(i); suppress = false; updateMore(); });
+      socket.on('adhoc', showAdhoc);
+      socket.on('scroll', ({ index, step }) => {
+        if (index === deck.getIndices().h) scrollStep(current(), step);
+      });
+    })();
+  </script>
+</body>
+</html>

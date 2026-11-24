@@ -1,0 +1,188 @@
+<%- include('../partials/head') %>
+<h1 class="h3"><%= poll ? 'Edit poll' : 'New poll' %></h1>
+<% if (hasBallots) { %>
+  <div class="alert alert-warning small">Ballots have already been cast. Editing questions or options now changes how existing ballots are read. Removing an option drops votes for it. Secrecy can't be changed.</div>
+<% } %>
+
+<div class="row g-4">
+  <div class="col-lg-4">
+    <div class="card card-body">
+      <label class="form-label fw-medium" for="p-title">Title</label>
+      <input class="form-control mb-2" id="p-title">
+      <label class="form-label fw-medium" for="p-desc">Description (markdown)</label>
+      <textarea class="form-control mb-2" id="p-desc" rows="4"></textarea>
+      <label class="form-label small" for="p-opens">Opens</label>
+      <input type="datetime-local" class="form-control mb-2" id="p-opens">
+      <label class="form-label small" for="p-closes">Closes</label>
+      <input type="datetime-local" class="form-control mb-2" id="p-closes">
+      <div class="form-check"><input class="form-check-input" type="checkbox" id="p-secret" <%= hasBallots ? 'disabled' : '' %>><label class="form-check-label" for="p-secret">Secret ballot</label></div>
+      <div class="form-text mb-2">Secret: voters get a private vote ID + code by email. Public: usernames are stored with ballots (visible to the House Chair).</div>
+      <div class="form-check"><input class="form-check-input" type="checkbox" id="p-live"><label class="form-check-label" for="p-live">Show live public results</label></div>
+      <label class="form-label small mt-3" for="p-amendment">Apply a policy amendment if this passes</label>
+      <select class="form-select form-select-sm" id="p-amendment">
+        <option value="">None</option>
+        <% amendments.forEach(a => { %><option value="<%= a.id %>">#<%= a.id %> <%= a.title %> (<%= a.doc_slug %>, <%= a.status %>)</option><% }) %>
+      </select>
+      <div class="form-text">Applied automatically at close if "Yes" leads the first multiple-choice question and meets its threshold (a strict majority if none is set).</div>
+    </div>
+  </div>
+
+  <div class="col-lg-8">
+    <div id="questions"></div>
+    <div class="card card-body mb-3 add-panel">
+      <div class="fw-medium">Add a question</div>
+      <div class="meta mb-2">Templates add pre-filled questions you can edit.</div>
+      <div class="row g-2 mb-3">
+        <div class="col-sm-6"><button type="button" class="template-item w-100 h-100 text-start" data-add="yesno">
+          <span class="badge text-bg-light border float-end">Template</span>
+          <div class="fw-medium">Referendum</div>
+          <div class="small text-secondary">Yes / No with a majority threshold, plus an optional comments box</div>
+        </button></div>
+        <div class="col-sm-6"><button type="button" class="template-item w-100 h-100 text-start" data-add="election">
+          <span class="badge text-bg-light border float-end">Template</span>
+          <div class="fw-medium">Officer election</div>
+          <div class="small text-secondary">Ranked-choice ballot with candidate statements and write-in</div>
+        </button></div>
+      </div>
+      <div class="small fw-medium mb-1">Blank question</div>
+      <div class="d-flex flex-wrap gap-1">
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-add="choice">+ Multiple choice</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-add="multi">+ Multi-select</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-add="vote">+ Vote (pick one)</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-add="text">+ Free response</button>
+      </div>
+    </div>
+    <div id="errors" class="alert alert-danger d-none"></div>
+    <div class="d-flex gap-2">
+      <button class="btn btn-dark" id="save"><%= poll ? 'Save changes' : 'Create poll' %></button>
+      <% if (poll) { %>
+        <a class="btn btn-outline-secondary" href="/polls/<%= poll.id %>">Cancel</a>
+      <% } %>
+    </div>
+    <% if (poll) { %>
+      <hr>
+      <div class="d-flex gap-2">
+        <form method="post" action="/polls/<%= poll.id %>/close-now" onsubmit="return confirm('Close voting now?')"><button class="btn btn-sm btn-outline-warning">Close voting now</button></form>
+        <form method="post" action="/polls/<%= poll.id %>/delete" onsubmit="return confirm('Delete this poll and all its ballots?')"><button class="btn btn-sm btn-outline-danger">Delete poll</button></form>
+      </div>
+    <% } %>
+  </div>
+</div>
+
+<script>
+  (() => {
+    const existing = <%- JSON.stringify(poll ? { title: poll.title, description: poll.description, secret: poll.secret, show_live_results: poll.show_live_results, opens_at: toLocalInput(poll.opens_at), closes_at: toLocalInput(poll.closes_at), amendment_id: poll.amendment_id, questions: poll.questions } : null).replace(/</g, '\\u003c') %>;
+    const $ = (id) => document.getElementById(id);
+    const rid = () => Math.random().toString(36).slice(2, 10);
+    const esc = hg.escapeHtml;
+    const fmt = (d) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+
+    let questions = existing ? existing.questions : [];
+    if (existing) {
+      $('p-title').value = existing.title; $('p-desc').value = existing.description;
+      $('p-opens').value = existing.opens_at; $('p-closes').value = existing.closes_at;
+      $('p-secret').checked = existing.secret; $('p-live').checked = existing.show_live_results;
+      $('p-amendment').value = existing.amendment_id || '';
+    } else {
+      $('p-secret').checked = true;
+      $('p-opens').value = fmt(new Date());
+      $('p-closes').value = fmt(new Date(Date.now() + 3 * 864e5));
+    }
+
+    const templates = {
+      yesno: () => [
+        { type: 'choice', prompt: 'Do you approve?', options: [{ id: rid(), label: 'Yes' }, { id: rid(), label: 'No' }], config: { threshold: 50, required: true } },
+        { type: 'text', prompt: 'Comments (optional)', options: [], config: { required: false } },
+      ],
+      election: () => [{ type: 'vote', prompt: 'Position name', options: [{ id: rid(), label: '', statement: '' }], config: { method: 'irv', writeIn: true, required: true } }],
+      choice: () => [{ type: 'choice', prompt: '', options: [{ id: rid(), label: '' }], config: { required: true } }],
+      multi: () => [{ type: 'multi', prompt: '', options: [{ id: rid(), label: '' }], config: { required: true } }],
+      vote: () => [{ type: 'vote', prompt: '', options: [{ id: rid(), label: '', statement: '' }], config: { method: 'pick1', writeIn: false, required: true } }],
+      text: () => [{ type: 'text', prompt: '', options: [], config: { required: false } }],
+    };
+    document.querySelectorAll('[data-add]').forEach((b) => b.onclick = () => {
+      questions.push(...templates[b.dataset.add]()); render();
+      $('questions').lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+
+    const typeLabel = { choice: 'Multiple choice', multi: 'Multi-select', vote: 'Vote', text: 'Free response' };
+
+    function render() {
+      $('questions').innerHTML = questions.map((q, qi) => `
+        <div class="card q-card mb-3" data-qi="${qi}">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <span class="badge text-bg-light border">${typeLabel[q.type]}</span>
+              <div class="btn-group btn-group-sm">
+                <button class="btn btn-outline-secondary" data-act="up" ${qi === 0 ? 'disabled' : ''}>↑</button>
+                <button class="btn btn-outline-secondary" data-act="down" ${qi === questions.length - 1 ? 'disabled' : ''}>↓</button>
+                <button class="btn btn-outline-danger" data-act="del">Remove</button>
+              </div>
+            </div>
+            <input class="form-control mb-1 fw-medium" data-f="prompt" placeholder="Question / position (supports **bold**, *italics*, [links](https://…))" value="${esc(q.prompt)}">
+            <textarea class="form-control form-control-sm mb-2" data-f="description" rows="${q.description ? 3 : 1}" placeholder="Description (optional, markdown): context, rules, links…">${esc(q.description || '')}</textarea>
+            ${q.type === 'text' ? '' : `
+              <div class="mb-2">${q.options.map((o, oi) => `
+                <div class="opt-row" data-oi="${oi}">
+                  <div class="input-group input-group-sm">
+                    <input class="form-control" data-o="label" placeholder="${q.type === 'vote' ? 'Candidate username / name' : 'Option'}" value="${esc(o.label)}">
+                    <button class="btn btn-outline-secondary" data-act="odel" title="Remove option">✕</button>
+                  </div>
+                  ${q.type === 'vote' ? `<textarea class="form-control form-control-sm mt-1" data-o="statement" rows="2" placeholder="Candidate statement (optional, shown when voters expand the name)">${esc(o.statement || '')}</textarea>` : ''}
+                </div>`).join('')}
+                <button class="btn btn-sm btn-link px-0" data-act="oadd">+ Add ${q.type === 'vote' ? 'candidate' : 'option'}</button>
+              </div>
+              <div class="row g-2 align-items-center small">
+                ${q.type === 'vote' ? `
+                  <div class="col-auto"><select class="form-select form-select-sm" data-c="method">
+                    <option value="irv" ${q.config.method === 'irv' ? 'selected' : ''}>Ranked choice (instant runoff)</option>
+                    <option value="pick1" ${q.config.method !== 'irv' ? 'selected' : ''}>Pick one</option></select></div>` : ''}
+                ${q.type === 'vote' || q.type === 'choice' ? `
+                  <div class="col-auto form-check ms-2"><input class="form-check-input" type="checkbox" data-c="writeIn" id="wi${qi}" ${q.config.writeIn ? 'checked' : ''}><label class="form-check-label" for="wi${qi}">Allow write-in</label></div>` : ''}
+                <div class="col-auto ms-2" title="${q.type === 'multi' ? 'Each option needs this share of ballots to be approved' : 'The leading option must reach this share of ballots to carry'}">${q.type === 'multi' ? 'Approval threshold per option' : 'Leader needs'} <input class="form-control form-control-sm d-inline-block" style="width:5rem" data-c="threshold" type="number" min="0" max="100" step="0.1" value="${q.config.threshold ?? ''}" placeholder="—">%</div>
+              </div>`}
+            <div class="form-check mt-2 small"><input class="form-check-input" type="checkbox" data-c="required" id="rq${qi}" ${q.config.required !== false ? 'checked' : ''}><label class="form-check-label" for="rq${qi}">Required</label></div>
+          </div>
+        </div>`).join('') || '<p class="text-secondary">No questions yet. Start from a template or add a blank question below.</p>';
+    }
+
+    $('questions').addEventListener('input', (e) => {
+      const card = e.target.closest('[data-qi]'); if (!card) return;
+      const q = questions[card.dataset.qi];
+      if (e.target.dataset.f) q[e.target.dataset.f] = e.target.value;
+      if (e.target.dataset.o) q.options[e.target.closest('[data-oi]').dataset.oi][e.target.dataset.o] = e.target.value;
+      if (e.target.dataset.c) {
+        const k = e.target.dataset.c;
+        q.config[k] = e.target.type === 'checkbox' ? e.target.checked : k === 'threshold' ? (e.target.value === '' ? null : Number(e.target.value)) : e.target.value;
+      }
+    });
+    $('questions').addEventListener('change', (e) => { if (e.target.dataset.c === 'method') render(); });
+    $('questions').addEventListener('click', (e) => {
+      const act = e.target.dataset.act; if (!act) return;
+      const qi = Number(e.target.closest('[data-qi]').dataset.qi); const q = questions[qi];
+      if (act === 'del') questions.splice(qi, 1);
+      if (act === 'up') [questions[qi - 1], questions[qi]] = [questions[qi], questions[qi - 1]];
+      if (act === 'down') [questions[qi + 1], questions[qi]] = [questions[qi], questions[qi + 1]];
+      if (act === 'oadd') q.options.push({ id: rid(), label: '', statement: '' });
+      if (act === 'odel') q.options.splice(Number(e.target.closest('[data-oi]').dataset.oi), 1);
+      render();
+    });
+
+    $('save').onclick = async () => {
+      const body = {
+        title: $('p-title').value, description: $('p-desc').value,
+        opens_at: $('p-opens').value, closes_at: $('p-closes').value,
+        secret: $('p-secret').checked, show_live_results: $('p-live').checked,
+        amendment_id: $('p-amendment').value || null, questions,
+      };
+      try {
+        const r = await hg.postJSON(<%- JSON.stringify(poll ? `/polls/${poll.id}` : '/polls') %>, body);
+        location.href = r.redirect;
+      } catch (err) {
+        $('errors').classList.remove('d-none'); $('errors').innerText = err.message;
+      }
+    };
+    render();
+  })();
+</script>
+<%- include('../partials/foot') %>

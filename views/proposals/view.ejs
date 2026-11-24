@@ -1,0 +1,93 @@
+<%- include('../partials/head') %>
+<% const canManage = user && user.hasPermission(GOVPERMS.MANAGE); %>
+<div class="d-flex justify-content-between align-items-start mb-2">
+  <div>
+    <div class="meta">Proposal #<%= p.id %> · <%= TYPES[p.type].label %></div>
+    <h1 class="h3 content-serif"><%= p.title %></h1>
+  </div>
+  <div class="text-end">
+    <% if (p.decision) { %><span class="badge fs-6 text-bg-<%= p.decision === 'APPROVED' ? 'success' : p.decision === 'REJECTED' ? 'danger' : 'secondary' %>"><%= p.decision %></span>
+    <% } else if (p.status === 'dismissed') { %><span class="badge fs-6 text-bg-dark">DISMISSED</span>
+    <% } else { %><span class="badge fs-6 text-bg-light border"><%= p.status === 'agenda' ? 'ON AGENDA' : 'OPEN' %></span><% } %>
+  </div>
+</div>
+
+<% if (p.status === 'dismissed') { %>
+  <div class="alert alert-dark">Dismissed by <b><%= p.dismissed_by %></b>: <%= p.dismiss_reason %></div>
+<% } %>
+
+<div class="row g-4">
+  <div class="col-lg-8">
+    <dl class="row mb-0">
+      <dt class="col-sm-3">Primary Author</dt><dd class="col-sm-9"><%= p.author %></dd>
+      <dt class="col-sm-3">Secondary Authors</dt><dd class="col-sm-9"><%= p.coauthors || 'none' %></dd>
+      <dt class="col-sm-3">Submitted</dt><dd class="col-sm-9"><%= fmtDate(p.created_at) %></dd>
+      <% if (p.meeting) { %><dt class="col-sm-3">Meeting</dt><dd class="col-sm-9"><a href="/meetings/<%= p.meeting.id %>"><%= p.meeting.title %></a> — <%= fmtDate(p.meeting.meeting_at, {dateOnly: true}) %></dd><% } %>
+      <% if (p.outcome) { %>
+        <dt class="col-sm-3">Meeting vote</dt>
+        <dd class="col-sm-9">Yay <b><%= p.outcome.yay %></b> · Nay <b><%= p.outcome.nay %></b> (<%= (p.outcome.share * 100).toFixed(1) %>% in favor; <%= p.outcome.required %> needed)
+          <span class="badge <%= p.outcome.passes ? 'text-bg-success' : 'text-bg-warning' %>"><%= p.outcome.passes ? 'meets requirement' : 'below requirement' %></span></dd>
+      <% } %>
+      <dt class="col-sm-3">Procedure</dt>
+      <dd class="col-sm-9"><%- procedureHtml %>
+        <% if (p.funding) { %><div class="meta"><%= p.funding.account_number ? `Adds to existing account ${p.funding.account_number}` : 'Creates a new account' %><%= p.funding.amount !== p.funding.final_amount ? ` · originally $${p.funding.amount}` : '' %></div><% } %>
+        <div class="mt-1"><span class="fw-medium">Special procedural notes:</span> <%= p.special_notes || 'N/A' %></div>
+      </dd>
+    </dl>
+
+    <% const amendments = p.attachments.filter(a => a.kind === 'amendment'); %>
+    <% if (amendments.length) { %>
+      <h2 class="h6 mt-3">Attached amendments</h2>
+      <ul>
+        <% amendments.forEach(a => { %>
+          <li><a href="/docs/amendments/<%= a.amendment_id %>"><%= a.amendment_title %></a> <span class="meta">to <a href="/docs/<%= a.doc_slug %>"><%= a.doc_slug %></a> · <%= a.amendment_status %></span></li>
+        <% }) %>
+      </ul>
+    <% } %>
+
+    <h2 class="h5 mt-4">Unofficial Summary</h2>
+    <div class="proposal-text"><%- md(p.summary) %></div>
+
+    <h2 class="h5 mt-4">Official Full Text</h2>
+    <div class="proposal-text card card-body"><%- md(p.final_text) %></div>
+    <% if (p.final_text !== p.full_text) { %>
+      <details class="mt-2"><summary class="small">Original full text (before amendment)</summary><div class="proposal-text mt-2 text-secondary"><%- md(p.full_text) %></div></details>
+    <% } %>
+  </div>
+
+  <div class="col-lg-4">
+    <% if (canManage) { %>
+      <div class="card mb-3"><div class="card-body">
+        <h2 class="h6">House Chair tools</h2>
+        <% if (p.status === 'open' && upcoming) { %>
+          <form method="post" action="/proposals/<%= p.id %>/agenda" class="mb-2"><button class="btn btn-sm btn-dark w-100">Add to agenda: <%= upcoming.title %></button></form>
+        <% } %>
+        <a href="/proposals/<%= p.id %>/edit" class="btn btn-sm btn-outline-secondary w-100 mb-2">Edit summary / official text / funding</a>
+        <% if (p.status !== 'dismissed' && !p.decision) { %>
+          <form method="post" action="/proposals/<%= p.id %>/dismiss" class="mb-2">
+            <input name="reason" class="form-control form-control-sm mb-1" placeholder="Reason for dismissal" required>
+            <button class="btn btn-sm btn-outline-warning w-100">Dismiss (stays logged)</button>
+          </form>
+        <% } else if (p.status === 'dismissed') { %>
+          <form method="post" action="/proposals/<%= p.id %>/restore" class="mb-2"><button class="btn btn-sm btn-outline-secondary w-100">Restore</button></form>
+        <% } %>
+        <details>
+          <summary class="small text-danger">Permanently delete…</summary>
+          <form method="post" action="/proposals/<%= p.id %>/delete" class="mt-2">
+            <div class="small text-secondary mb-1">For offensive content or cleanup. This removes the record entirely. Type <b><%= p.id %></b> to confirm.</div>
+            <input name="confirm" class="form-control form-control-sm mb-1" autocomplete="off">
+            <button class="btn btn-sm btn-danger w-100">Delete forever</button>
+          </form>
+        </details>
+      </div></div>
+    <% } %>
+
+    <h2 class="h6">History</h2>
+    <ol class="list-unstyled small">
+      <% p.log.forEach(l => { %>
+        <li class="mb-1"><span class="meta"><%= fmtDate(l.at) %></span><br><%= l.message %> <span class="meta">— <%= l.actor %></span></li>
+      <% }) %>
+    </ol>
+  </div>
+</div>
+<%- include('../partials/foot') %>

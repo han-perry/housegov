@@ -1,0 +1,24 @@
+<%- include('../partials/head', { useDiff: true }) %>
+<div class="mb-3">
+  <a href="/docs/<%= doc.slug %>/history" class="small">← History of <%= doc.title %></a>
+  <h1 class="h4 mt-1"><%= c.subject %></h1>
+  <div class="meta"><%= c.author %> · <%= fmtDate(c.date) %> · <code><%= c.sha.slice(0, 7) %></code> · <a href="/docs/<%= doc.slug %>?rev=<%= c.sha %>">view document at this version</a></div>
+</div>
+<div class="btn-group btn-group-sm mb-2" role="group">
+  <button class="btn btn-outline-secondary active" data-fmt="line-by-line">Unified</button>
+  <button class="btn btn-outline-secondary" data-fmt="side-by-side">Side by side</button>
+</div>
+<div id="diff"></div>
+<textarea id="patch" hidden><%= patch %></textarea>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const patch = document.getElementById('patch').value;
+    const draw = (fmt) => new Diff2HtmlUI(document.getElementById('diff'), patch, { drawFileList: false, outputFormat: fmt, matching: 'words', diffStyle: 'word' }).draw();
+    draw('line-by-line');
+    document.querySelectorAll('[data-fmt]').forEach((b) => b.onclick = () => {
+      document.querySelectorAll('[data-fmt]').forEach((x) => x.classList.toggle('active', x === b));
+      draw(b.dataset.fmt);
+    });
+  });
+</script>
+<%- include('../partials/foot', { useDiff: true }) %>

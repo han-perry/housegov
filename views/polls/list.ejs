@@ -1,0 +1,26 @@
+<%- include('../partials/head') %>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">Elections &amp; Votes</h1>
+  <% if (user && user.hasPermission(GOVPERMS.MANAGE)) { %><a class="btn btn-dark" href="/polls/new">New poll</a><% } %>
+</div>
+<% const groups = [['open', 'Open now'], ['upcoming', 'Upcoming'], ['closed', 'Closed']]; %>
+<% groups.forEach(([key, label]) => { const list = rows.filter(r => r.status === key); if (!list.length) return; %>
+  <h2 class="h5 mt-3"><%= label %></h2>
+  <div class="list-group">
+    <% list.forEach(p => { %>
+      <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" href="/polls/<%= p.id %><%= key === 'closed' ? '/results' : '' %>">
+        <div>
+          <div class="fw-medium"><%= p.title %></div>
+          <div class="meta"><%= p.secret ? 'Secret ballot' : 'Public ballot' %> ·
+            <% if (key === 'open') { %>closes in <span data-countdown="<%= new Date(p.closes_at).toISOString() %>" data-style="inline"></span>
+            <% } else if (key === 'upcoming') { %>opens <%= fmtDate(p.opens_at) %>
+            <% } else { %>closed <%= fmtDate(p.closes_at) %><% } %>
+          </div>
+        </div>
+        <% if (voted.has(p.id)) { %><span class="badge text-bg-success">Voted</span><% } %>
+      </a>
+    <% }) %>
+  </div>
+<% }) %>
+<% if (!rows.length) { %><p class="text-secondary">No polls yet.</p><% } %>
+<%- include('../partials/foot') %>

@@ -1,0 +1,220 @@
+<%- include('../partials/head') %>
+<div style="max-width: 46rem" class="mx-auto">
+  <div class="d-flex justify-content-between align-items-start">
+    <div>
+      <h1 class="h3 mb-1"><%= poll.title %></h1>
+      <div class="meta">
+        <%= poll.secret ? 'Secret ballot' : 'Public ballot: the House Chair can see who voted for what' %> ·
+        <% if (poll.status === 'open') { %>closes <%= fmtDate(poll.closes_at) %> (<span data-countdown="<%= new Date(poll.closes_at).toISOString() %>" data-style="inline"></span>)
+        <% } else if (poll.status === 'upcoming') { %>opens <%= fmtDate(poll.opens_at) %>
+        <% } else { %>closed <%= fmtDate(poll.closes_at) %><% } %>
+      </div>
+    </div>
+    <div class="text-end">
+      <% if (resultsVisible) { %><a class="btn btn-sm btn-outline-secondary" href="/polls/<%= poll.id %>/results">Results &amp; ledger</a><% } %>
+      <% if (user && user.hasPermission(GOVPERMS.MANAGE)) { %><a class="btn btn-sm btn-outline-secondary" href="/polls/<%= poll.id %>/edit">Edit</a><% } %>
+    </div>
+  </div>
+  <% if (poll.description) { %><div class="content-serif mt-3"><%- md(poll.description) %></div><% } %>
+  <% if (poll.amendment) { %><div class="alert alert-light border small">If this passes, <a href="/docs/amendments/<%= poll.amendment.id %>"><%= poll.amendment.title %></a> will be applied to <a href="/docs/<%= poll.amendment.doc_slug %>"><%= poll.amendment.doc_slug %></a>.</div><% } %>
+
+  <% if (poll.status !== 'open') { %>
+    <div class="alert alert-secondary mt-3"><%= poll.status === 'upcoming' ? 'Voting has not opened yet.' : 'Voting has closed.' %></div>
+  <% } else if (state === 'anon') { %>
+    <div class="alert alert-secondary mt-3">Sign in with Simmons SSO to vote.</div>
+  <% } else if (state === 'ineligible') { %>
+    <div class="alert alert-secondary mt-3">You aren't eligible to vote in this poll.</div>
+  <% } else { %>
+
+    <% if (state === 'secret-voted') { %>
+      <div class="card card-body mt-3" id="unlock-card">
+        <div class="fw-medium">You've already voted.</div>
+        <p class="small text-secondary mb-2">To view, change, or withdraw your vote, enter the vote ID and code from your confirmation email.</p>
+        <div class="row g-2">
+          <div class="col-sm-5"><input class="form-control font-mono" id="u-vote" placeholder="Vote ID" autocomplete="off"></div>
+          <div class="col-sm-5"><input class="form-control font-mono" id="u-code" placeholder="Code" autocomplete="off"></div>
+          <div class="col-sm-2 d-grid"><button class="btn btn-dark" id="unlock">Open</button></div>
+        </div>
+      </div>
+    <% } %>
+
+    <div id="receipt" class="alert alert-success mt-3 d-none"></div>
+
+    <form id="ballot" class="mt-3 <%= state === 'secret-voted' ? 'd-none' : '' %>" onsubmit="return false">
+      <% poll.questions.forEach((q, qi) => { %>
+        <div class="card mb-3 question" data-qid="<%= q.id %>" data-type="<%= q.type %>" data-method="<%= q.config.method || '' %>">
+          <div class="card-body">
+            <div class="d-flex justify-content-between">
+              <h2 class="h6 content-serif mb-2"><%= qi + 1 %>. <%- mdInline(q.prompt) %><%= q.config.required !== false && q.type !== 'text' ? '' : ' (optional)' %></h2>
+              <% if (q.config.threshold !== null && q.config.threshold !== undefined) { %><span class="badge text-bg-light border align-self-start">Requires <%= q.config.threshold %>%</span><% } %>
+            </div>
+            <% if (q.description) { %><div class="question-desc content-serif"><%- md(q.description) %></div><% } %>
+
+            <% if (q.type === 'text') { %>
+              <textarea class="form-control" rows="3" data-text></textarea>
+
+            <% } else if (q.type === 'vote' && q.config.method === 'irv') { %>
+              <p class="small text-secondary mb-2">Rank candidates in order of preference (1 = first choice). You can leave any unranked.</p>
+              <% q.options.forEach(o => { %>
+                <div class="d-flex align-items-start gap-2 mb-2">
+                  <select class="form-select form-select-sm rank-select" data-rank="<%= o.id %>" aria-label="Rank for <%= o.label %>">
+                    <option value="">–</option><% for (let r = 1; r <= q.options.length + (q.config.writeIn ? 1 : 0); r++) { %><option value="<%= r %>"><%= r %></option><% } %>
+                  </select>
+                  <div class="flex-grow-1">
+                    <% if (o.statement) { %><details><summary class="fw-medium"><%= o.label %></summary><div class="candidate-statement"><%- md(o.statement) %></div></details>
+                    <% } else { %><span class="fw-medium"><%= o.label %></span><% } %>
+                  </div>
+                </div>
+              <% }) %>
+              <% if (q.config.writeIn) { %>
+                <div class="d-flex align-items-center gap-2">
+                  <select class="form-select form-select-sm rank-select" data-rank-writein aria-label="Rank for write-in">
+                    <option value="">–</option><% for (let r = 1; r <= q.options.length + 1; r++) { %><option value="<%= r %>"><%= r %></option><% } %>
+                  </select>
+                  <input class="form-control form-control-sm" data-writein placeholder="Write-in candidate">
+                </div>
+              <% } %>
+
+            <% } else { const multi = q.type === 'multi'; %>
+              <% q.options.forEach(o => { %>
+                <div class="form-check mb-1">
+                  <input class="form-check-input" type="<%= multi ? 'checkbox' : 'radio' %>" name="q<%= q.id %>" value="<%= o.id %>" id="o<%= q.id %>-<%= o.id %>">
+                  <label class="form-check-label w-100" for="o<%= q.id %>-<%= o.id %>">
+                    <% if (o.statement) { %><details onclick="event.stopPropagation()"><summary class="fw-medium"><%= o.label %></summary><div class="candidate-statement"><%- md(o.statement) %></div></details>
+                    <% } else { %><%= o.label %><% } %>
+                  </label>
+                </div>
+              <% }) %>
+              <% if (q.config.writeIn && !multi) { %>
+                <div class="form-check d-flex align-items-center gap-2">
+                  <input class="form-check-input" type="radio" name="q<%= q.id %>" value="__writein" id="o<%= q.id %>-wi">
+                  <input class="form-control form-control-sm" data-writein placeholder="Write-in" onfocus="document.getElementById('o<%= q.id %>-wi').checked = true">
+                </div>
+              <% } %>
+              <% if (!multi) { %>
+                <button type="button" class="btn btn-link btn-sm px-0 text-secondary" data-clear="q<%= q.id %>">Clear selection</button>
+              <% } %>
+            <% } %>
+          </div>
+        </div>
+      <% }) %>
+
+      <div id="ballot-errors" class="alert alert-danger d-none"></div>
+      <div class="d-flex flex-wrap gap-2">
+        <button class="btn btn-dark" id="submit"><%= state === 'public-edit' ? 'Update my vote' : 'Cast my vote' %></button>
+        <button class="btn btn-outline-danger <%= state === 'public-edit' ? '' : 'd-none' %>" id="withdraw" type="button">Withdraw my vote</button>
+        <% if (poll.secret) { %><button class="btn btn-outline-secondary d-none" id="rotate" type="button">My code may be compromised: send a new one</button><% } %>
+      </div>
+      <p class="small text-secondary mt-2">You can change or withdraw your vote until the poll closes.</p>
+    </form>
+  <% } %>
+</div>
+
+<% if (poll.status === 'open' && (state === 'new' || state === 'public-edit' || state === 'secret-voted')) { %>
+<script>
+  (() => {
+    const PID = <%= poll.id %>;
+    const SECRET = <%= !!poll.secret %>;
+    const WRITE_IN = 'writein:';
+    const existing = <%- JSON.stringify(existing ? existing.answers : null).replace(/</g, '\\u003c') %>;
+    let creds = null;           // {voteId, code} for secret ballots; kept only in this tab
+    let hasBallot = <%= state !== 'new' %>;
+    const $ = (id) => document.getElementById(id);
+
+    // Radio buttons can't be unchecked by clicking, so offer an explicit clear.
+    document.querySelectorAll('[data-clear]').forEach((b) => b.addEventListener('click', () => {
+      document.querySelectorAll(`input[name="${b.dataset.clear}"]`).forEach((r) => { r.checked = false; });
+      const wi = b.closest('.question')?.querySelector('[data-writein]'); if (wi) wi.value = '';
+    }));
+
+    function collect() {
+      const answers = {}; const problems = [];
+      document.querySelectorAll('.question').forEach((el) => {
+        const qid = el.dataset.qid, type = el.dataset.type;
+        if (type === 'text') { const v = el.querySelector('[data-text]').value.trim(); if (v) answers[qid] = v; return; }
+        if (type === 'vote' && el.dataset.method === 'irv') {
+          const ranked = [];
+          el.querySelectorAll('[data-rank]').forEach((s) => s.value && ranked.push([Number(s.value), s.dataset.rank]));
+          const wiSel = el.querySelector('[data-rank-writein]'), wi = el.querySelector('[data-writein]');
+          if (wiSel && wiSel.value && wi.value.trim()) ranked.push([Number(wiSel.value), WRITE_IN + wi.value.trim()]);
+          const ranks = ranked.map((r) => r[0]);
+          if (new Set(ranks).size !== ranks.length) problems.push('Each rank can only be used once.');
+          if (ranked.length) answers[qid] = ranked.sort((a, b) => a[0] - b[0]).map((r) => r[1]);
+          return;
+        }
+        if (type === 'multi') { const sel = [...el.querySelectorAll('input[type=checkbox]:checked')].map((x) => x.value); if (sel.length) answers[qid] = sel; return; }
+        const r = el.querySelector('input[type=radio]:checked');
+        if (!r) return;
+        if (r.value === '__writein') { const w = el.querySelector('[data-writein]').value.trim(); if (w) answers[qid] = { writeIn: w }; }
+        else answers[qid] = r.value;
+      });
+      return { answers, problems };
+    }
+
+    function fill(answers) {
+      document.querySelectorAll('.question').forEach((el) => {
+        const a = answers[el.dataset.qid]; if (a === undefined) return;
+        const type = el.dataset.type;
+        if (type === 'text') el.querySelector('[data-text]').value = a;
+        else if (type === 'vote' && el.dataset.method === 'irv') {
+          a.forEach((id, i) => {
+            if (id.startsWith(WRITE_IN)) { el.querySelector('[data-rank-writein]').value = i + 1; el.querySelector('[data-writein]').value = id.slice(WRITE_IN.length); }
+            else { const s = el.querySelector(`[data-rank="${CSS.escape(id)}"]`); if (s) s.value = i + 1; }
+          });
+        } else if (type === 'multi') a.forEach((id) => { const c = el.querySelector(`input[value="${CSS.escape(id)}"]`); if (c) c.checked = true; });
+        else if (typeof a === 'object') { el.querySelector('input[value="__writein"]').checked = true; el.querySelector('[data-writein]').value = a.writeIn; }
+        else { const r = el.querySelector(`input[value="${CSS.escape(a)}"]`); if (r) r.checked = true; }
+      });
+    }
+
+    function showErrors(msg) { const e = $('ballot-errors'); e.classList.toggle('d-none', !msg); e.innerText = msg || ''; }
+    function editMode() {
+      hasBallot = true;
+      $('submit').textContent = 'Update my vote';
+      $('withdraw').classList.remove('d-none');
+      $('rotate')?.classList.remove('d-none');
+    }
+    function receipt(voteId, code) {
+      const r = $('receipt'); r.classList.remove('d-none');
+      r.innerHTML = `<div class="fw-medium">Your vote was recorded.</div>` + (code ?
+        `<div class="mt-2">Vote ID: <code class="vote-id">${hg.escapeHtml(voteId)}</code><br>Code: <code class="vote-id">${hg.escapeHtml(code)}</code></div>
+         <div class="small mt-2">We also emailed these to you. Keep them private: together they let you change or withdraw your vote. Your vote ID appears on the public ledger so you can check it was counted.</div>` : '');
+    }
+
+    if (existing) fill(existing);
+
+    $('unlock')?.addEventListener('click', async () => {
+      const c = { voteId: $('u-vote').value.trim(), code: $('u-code').value.trim() };
+      try {
+        const r = await hg.postJSON(`/polls/${PID}/ballot`, c);
+        creds = c; fill(r.ballot.answers);
+        $('unlock-card').classList.add('d-none'); $('ballot').classList.remove('d-none'); editMode();
+      } catch (e) { alert(e.message); }
+    });
+
+    $('submit').addEventListener('click', async () => {
+      const { answers, problems } = collect();
+      if (problems.length) return showErrors(problems.join('\n'));
+      showErrors('');
+      try {
+        const r = await hg.postJSON(`/polls/${PID}/vote`, { answers, ...(creds || {}) });
+        if (r.updated) { receipt(); $('receipt').firstChild.textContent = 'Your vote was updated.'; }
+        else { if (r.code) creds = { voteId: r.voteId, code: r.code }; receipt(r.voteId, r.code); editMode(); }
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } catch (e) { showErrors(e.message); }
+    });
+
+    $('withdraw').addEventListener('click', async () => {
+      if (!confirm('Withdraw your vote? You can vote again before the poll closes.')) return;
+      try { await hg.postJSON(`/polls/${PID}/withdraw`, creds || {}); location.reload(); } catch (e) { alert(e.message); }
+    });
+
+    $('rotate')?.addEventListener('click', async () => {
+      if (!creds) return;
+      try { const r = await hg.postJSON(`/polls/${PID}/rotate`, creds); creds.code = r.code; receipt(creds.voteId, r.code); $('receipt').firstChild.textContent = 'Your code was reset. The old code no longer works.'; }
+      catch (e) { alert(e.message); }
+    });
+  })();
+</script>
+<% } %>
+<%- include('../partials/foot') %>

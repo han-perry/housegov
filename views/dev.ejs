@@ -1,0 +1,27 @@
+<%- include('partials/head') %>
+<h1 class="h3">Dev tools</h1>
+<p class="text-secondary small">Stand-in for SSO and membrane permissions. Disabled when <code>DEV_AUTH=0</code>.</p>
+<div class="row g-4">
+  <div class="col-md-6">
+    <form method="post" action="/dev/login" class="card card-body">
+      <label class="form-label fw-medium" for="username">Act as user</label>
+      <input class="form-control mb-3" id="username" name="username" value="<%= current ? current.username : 'perryh' %>">
+      <div class="fw-medium mb-1">Permissions</div>
+      <% allPerms.forEach(p => { %>
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="perms" value="<%= p %>" id="<%= p %>" <%= !current || current.hasPermission(p) ? 'checked' : '' %>><label class="form-check-label font-mono small" for="<%= p %>"><%= p %></label></div>
+      <% }) %>
+      <div class="mt-3 d-flex gap-2"><button class="btn btn-dark">Switch</button></div>
+    </form>
+    <form method="post" action="/dev/logout" class="mt-2"><button class="btn btn-sm btn-link px-0">Sign out (view as anonymous)</button></form>
+  </div>
+  <div class="col-md-6">
+    <div class="card card-body">
+      <div class="fw-medium">Shortcuts</div>
+      <ul class="small mb-0">
+        <li><a href="/dev/outbox">Mail outbox</a>: emails the app would have sent (proposal notices, ballot codes)</li>
+        <li>Open the live view on your phone: use your LAN IP and set <code>BASE_URL</code> so the QR code points there</li>
+      </ul>
+    </div>
+  </div>
+</div>
+<%- include('partials/foot') %>

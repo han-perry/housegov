@@ -1,0 +1,96 @@
+:root {
+  --hg-sans: "IBM Plex Sans", system-ui, sans-serif;
+  --hg-serif: "IBM Plex Serif", Georgia, serif;
+  --hg-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --hg-grey: #e4e4e7;
+  --bs-body-font-family: var(--hg-sans);
+}
+
+body { font-family: var(--hg-sans); background: #fafafa; color: #18181b; }
+.hg-nav { background: var(--hg-grey); border-bottom: 1px solid #d4d4d8; }
+.hg-nav .navbar-brand { font-weight: 600; letter-spacing: -0.01em; }
+.hg-nav .nav-link.active { font-weight: 600; text-decoration: underline; text-underline-offset: 6px; }
+h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.01em; }
+code, pre, .font-mono, .vote-id { font-family: var(--hg-mono); }
+
+/* Proposal / election / slideshow content is set in Plex Serif. */
+.content-serif, .proposal-text, .doc-body, .slide-body, .reveal .slides, .candidate-statement { font-family: var(--hg-serif); }
+.proposal-text { font-size: 1.05rem; line-height: 1.6; }
+.doc-body { max-width: 46rem; font-size: 1.05rem; line-height: 1.65; }
+
+.card { border-color: #e4e4e7; }
+.money { font-variant-numeric: tabular-nums; color: #166534; }
+.status-badge { text-transform: uppercase; font-size: .7rem; letter-spacing: .05em; }
+.meta { color: #71717a; font-size: .875rem; }
+
+/* Countdown */
+.countdown-digits { font-variant-numeric: tabular-nums; font-size: 2rem; font-weight: 600; }
+.countdown-digits small { font-size: .9rem; font-weight: 400; color: #71717a; margin-right: .75rem; }
+
+/* Agenda reorder */
+.agenda-item { cursor: grab; }
+.agenda-item.dragging { opacity: .4; }
+
+/* Diff tweaks */
+.d2h-wrapper { font-size: .85rem; }
+.d2h-file-header { display: none; }
+
+/* Poll builder */
+.q-card { border-left: 4px solid #a1a1aa; }
+.q-card .opt-row + .opt-row { margin-top: .4rem; }
+
+/* Ballot */
+.rank-select { width: 5.5rem; }
+.candidate-statement { font-size: .95rem; background: #f4f4f5; border-radius: .375rem; padding: .5rem .75rem; margin-top: .25rem; }
+
+/* Org chart */
+.org-canvas { height: 70vh; min-height: 420px; background: #fff; border: 1px solid #e4e4e7; border-radius: .5rem; overflow: hidden;
+  background-image: radial-gradient(#e4e4e7 1px, transparent 1px); background-size: 18px 18px; }
+.org-node { background: #fff; border: 1px solid #d4d4d8; border-top: 3px solid #52525b; border-radius: 8px; padding: 8px 12px; font-family: var(--hg-sans); box-shadow: 0 1px 2px #0000000d; cursor: pointer; }
+.org-node:hover { border-color: #71717a; border-top-color: #18181b; }
+.org-node-heading { background: #f4f4f5; border-top-color: #a1a1aa; display: flex; align-items: center; justify-content: center; }
+.org-node-root { background: #18181b; color: #fff; border-color: #18181b; display: flex; align-items: center; justify-content: center; }
+.org-role { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: #52525b; margin-bottom: 4px; }
+.org-node-heading .org-role, .org-node-root .org-role { margin: 0; font-size: 13px; }
+.org-node-root .org-role { color: #fff; }
+.org-person { font-size: 14px; font-weight: 500; color: #18181b; display: flex; align-items: center; gap: 7px; height: 26px; }
+.org-avatar { width: 20px; height: 20px; border-radius: 50%; background: #e4e4e7; color: #3f3f46; font-size: 9px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; }
+.org-vacant { font-size: 13px; font-style: italic; color: #a1a1aa; height: 26px; line-height: 26px; }
+.org-details { position: absolute; top: 12px; right: 12px; width: 16rem; font-size: .9rem; }
+
+/* Presenter console */
+.console-preview { background: #fff; border: 1px solid #e4e4e7; border-radius: .5rem; padding: 1rem 1.25rem; min-height: 14rem; max-height: 50vh; overflow: auto; font-family: var(--hg-serif); }
+.console-preview h1 { font-size: 1.6rem; } .console-preview h2 { font-size: 1.35rem; }
+textarea.minutes-box { font-family: var(--hg-mono); font-size: .9rem; min-height: 22rem; }
+
+/* Mobile live view */
+.live-slide { font-family: var(--hg-serif); }
+.live-slide h1 { font-size: 1.75rem; } .live-slide h2 { font-size: 1.4rem; }
+.clicker .btn { font-size: 1.25rem; padding: 1rem; }
+.add-panel { border-style: dashed; background: #fcfcfc; }
+.template-item { background: #fff; border: 1px solid #d4d4d8; border-left: 3px solid #18181b; border-radius: .375rem; padding: .6rem .75rem; }
+.template-item:hover { border-color: #71717a; background: #f4f4f5; }
+
+/* GovDocs: the rendered document reads as a page, not a widget. */
+.doc-toolbar { border-bottom: 1px solid #e4e4e7; padding-bottom: .75rem; }
+.doc-toolbar .breadcrumb a { color: inherit; }
+.doc-page { font-family: var(--hg-serif); font-size: 1.1rem; line-height: 1.75; color: #27272a; max-width: 44rem; padding-top: 1rem; }
+.doc-page h1 { font-family: var(--hg-serif); font-size: 2.4rem; font-weight: 600; line-height: 1.2; margin-bottom: 1.25rem; color: #18181b; }
+.doc-page h1 + p em:only-child { color: #71717a; }
+.doc-page h2 { font-family: var(--hg-serif); font-size: 1.5rem; margin: 2.75rem 0 .9rem; padding-bottom: .35rem; border-bottom: 1px solid #e4e4e7; scroll-margin-top: 1rem; }
+.doc-page h3 { font-family: var(--hg-serif); font-size: 1.2rem; margin: 2rem 0 .6rem; scroll-margin-top: 1rem; }
+.doc-page ol, .doc-page ul { padding-left: 1.6rem; }
+.doc-page li { margin-bottom: .45rem; padding-left: .25rem; }
+.doc-page li::marker { color: #71717a; font-variant-numeric: tabular-nums; }
+.doc-page blockquote { border-left: 3px solid #d4d4d8; padding-left: 1rem; color: #52525b; }
+.doc-page table { width: 100%; margin: 1rem 0; font-size: .95rem; }
+.doc-page th, .doc-page td { border-bottom: 1px solid #e4e4e7; padding: .4rem .5rem; }
+.doc-colophon { max-width: 44rem; margin-top: 3rem; padding-top: .75rem; border-top: 1px solid #e4e4e7; color: #71717a; font-size: .85rem; }
+.doc-toc { position: sticky; top: 1.5rem; padding-top: 1.25rem; font-size: .875rem; }
+.doc-toc-title { text-transform: uppercase; letter-spacing: .06em; font-size: .72rem; color: #71717a; font-weight: 600; margin-bottom: .5rem; }
+.doc-toc a { display: block; color: #3f3f46; text-decoration: none; padding: .2rem 0 .2rem .75rem; border-left: 2px solid #e4e4e7; }
+.doc-toc a:hover { color: #18181b; border-left-color: #18181b; }
+.doc-toc a.sub { padding-left: 1.5rem; font-size: .82rem; }
+
+.question-desc { font-size: .95rem; color: #3f3f46; margin-bottom: .75rem; }
+.question-desc > :last-child { margin-bottom: 0; }

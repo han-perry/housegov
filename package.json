@@ -1,0 +1,51 @@
+{
+  "name": "housegov",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node dist/server.js",
+    "dev": "npm run build:client && tsx watch src/server.ts",
+    "build": "npm run build:client && tsc -p .",
+    "typecheck": "tsc -p . --noEmit && tsc -p client --noEmit",
+    "build:client": "esbuild client/app.ts client/editor.ts client/orgchart.ts --bundle --minify --sourcemap --outdir=public/build --target=es2020",
+    "dev:client": "esbuild client/app.ts client/editor.ts client/orgchart.ts --bundle --sourcemap --outdir=public/build --target=es2020 --watch"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@toast-ui/editor": "^3.2.3",
+    "bootstrap": "^5.3.9",
+    "chart.js": "^4.6.2",
+    "connect-pg-simple": "^10.0.0",
+    "d3-org-chart": "^3.1.1",
+    "diff": "^9.0.0",
+    "diff2html": "^3.4.56",
+    "ejs": "^7.0.2",
+    "express": "^5.3.0",
+    "express-session": "^1.19.0",
+    "marked": "^18.2.1",
+    "nodemailer": "^10.6.1",
+    "pg": "^8.23.1",
+    "qrcode": "^1.5.4",
+    "reveal.js": "^6.0.2",
+    "sanitize-html": "^2.18.2",
+    "socket.io": "^4.8.4"
+  },
+  "devDependencies": {
+    "@types/connect-pg-simple": "^7.0.3",
+    "@types/ejs": "^3.1.5",
+    "@types/express": "^5.0.6",
+    "@types/express-session": "^1.19.0",
+    "@types/node": "^26.6.6",
+    "@types/nodemailer": "^8.0.2",
+    "@types/pg": "^8.23.1",
+    "@types/qrcode": "^1.5.6",
+    "@types/sanitize-html": "^2.16.2",
+    "esbuild": "^0.28.2",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}

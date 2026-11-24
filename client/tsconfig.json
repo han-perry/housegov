@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "es2020",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "lib": [
+      "es2022",
+      "dom",
+      "dom.iterable"
+    ],
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "isolatedModules": true,
+    "paths": {
+      "@toast-ui/editor": [
+        "../node_modules/@toast-ui/editor/types/index.d.ts"
+      ]
+    }
+  },
+  "include": [
+    "*.ts",
+    "*.d.ts"
+  ]
+}

@@ -1,0 +1,206 @@
+<%- include('../partials/head') %>
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div>
+    <h1 class="h4 mb-0">Presenter console</h1>
+    <div class="meta"><%= m.title %> · <span id="viewers">–</span> connected</div>
+  </div>
+  <div class="btn-group btn-group-sm">
+    <a class="btn btn-outline-secondary" href="/meetings/<%= m.id %>/slides" target="_blank">Open projector view ↗</a>
+    <a class="btn btn-outline-secondary" href="/meetings/<%= m.id %>/manage">Edit agenda</a>
+    <form method="post" action="/meetings/<%= m.id %>/adjourn" onsubmit="return confirm('Adjourn the meeting? Tabled proposals go back to the open pool.')"><button class="btn btn-danger btn-sm ms-2">Adjourn</button></form>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-7">
+    <div class="d-flex align-items-center gap-2 mb-2">
+      <button class="btn btn-dark" id="prev">← Prev</button>
+      <button class="btn btn-dark" id="next">Next →</button>
+      <select class="form-select form-select-sm w-auto" id="jump" aria-label="Jump to slide"></select>
+      <div class="btn-group ms-auto" role="group" aria-label="Scroll the projector">
+        <button class="btn btn-outline-dark" id="scroll-top" title="Back to top of slide">⤒</button>
+        <button class="btn btn-outline-dark" id="scroll-up" title="Scroll projector up (↑)">▲</button>
+        <button class="btn btn-outline-dark" id="scroll-down" title="Scroll projector down (↓)">▼ Scroll</button>
+      </div>
+    </div>
+    <div class="console-preview mb-1" id="preview"></div>
+    <div class="meta mb-2">Long slide? Use ▼ Scroll or the ↓/↑ keys to scroll it on the projector. ←/→ change slides.</div>
+
+    <div id="proposal-tools" class="card card-body mb-3 d-none">
+      <div class="d-flex flex-wrap gap-2 align-items-center">
+        <span class="small fw-medium me-1">Decision:</span>
+        <span id="decision-buttons" class="d-flex flex-wrap gap-1"></span>
+        <a id="edit-link" class="btn btn-sm btn-outline-secondary ms-auto" href="#">Edit proposal</a>
+      </div>
+      <div class="small text-secondary mt-2" id="decision-status"></div>
+      <div id="vote-tools" class="border-top mt-2 pt-2">
+        <div class="d-flex flex-wrap gap-2 align-items-center small">
+          <span class="fw-medium">Vote <span id="vote-required" class="text-secondary fw-normal"></span>:</span>
+          <button class="btn btn-sm btn-dark" id="vote-call">Call clicker vote on this proposal</button>
+          <span class="text-secondary">or hand count</span>
+          <div class="input-group input-group-sm" style="width: auto">
+            <span class="input-group-text">Yay</span><input class="form-control" id="hc-yay" type="number" min="0" style="width: 4.5rem">
+            <span class="input-group-text">Nay</span><input class="form-control" id="hc-nay" type="number" min="0" style="width: 4.5rem">
+            <button class="btn btn-outline-dark" id="hc-save">Record</button>
+          </div>
+        </div>
+        <div class="small mt-2" id="vote-outcome"></div>
+      </div>
+    </div>
+
+    <div class="card card-body">
+      <h2 class="h6">Ad hoc vote</h2>
+      <div id="adhoc-idle" class="input-group input-group-sm">
+        <input id="adhoc-q" class="form-control" placeholder="Question (e.g. Motion to extend discussion 5 minutes)">
+        <button class="btn btn-dark" id="adhoc-open">Call vote</button>
+      </div>
+      <div id="adhoc-live" class="d-none">
+        <div class="fw-medium" id="adhoc-title"></div>
+        <div class="fs-5 my-1">Yay <b id="a-yay">0</b> · Nay <b id="a-nay">0</b> <span class="small text-secondary" id="a-share"></span></div>
+        <button class="btn btn-sm btn-outline-danger" id="adhoc-close">Close vote &amp; record in minutes</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="d-flex justify-content-between align-items-center">
+      <h2 class="h6 mb-1">Minutes <span class="meta fw-normal">(markdown, autosaves)</span></h2>
+      <span class="meta" id="saved"></span>
+    </div>
+    <textarea class="form-control minutes-box" id="minutes" spellcheck="true"><%= m.minutes %></textarea>
+    <div class="small mt-1">
+      <button class="btn btn-sm btn-link p-0" id="stamp">Insert timestamp + current item</button>
+    </div>
+  </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  (() => {
+    const MID = <%= m.id %>;
+    const clientId = Math.random().toString(36).slice(2);
+    let slides = [], current = 0, adhoc = null, lastIndex = -1;
+    const $ = (id) => document.getElementById(id);
+
+    function render() {
+      const s = slides[current];
+      const keep = current === lastIndex ? $('preview').scrollTop : 0; // agenda refreshes keep your place
+      $('preview').innerHTML = s ? s.html : '';
+      $('preview').scrollTop = keep; lastIndex = current;
+      $('jump').innerHTML = slides.map((x, i) => `<option value="${i}" ${i === current ? 'selected' : ''}>${i + 1}. ${hg.escapeHtml(x.title)}</option>`).join('');
+      const tools = $('proposal-tools');
+      if (s && s.kind === 'proposal') {
+        tools.classList.remove('d-none');
+        $('decision-buttons').innerHTML = s.decisions.map((d) =>
+          `<button class="btn btn-sm ${s.decision === d ? 'btn-dark' : 'btn-outline-dark'}" data-decision="${d}">${d}</button>`).join('');
+        $('decision-status').textContent = s.decision ? `Recorded: ${s.decision}` : 'No decision yet.';
+        $('edit-link').href = `/proposals/${s.proposalId}/edit?return=${encodeURIComponent(location.pathname)}`;
+        $('vote-tools').classList.toggle('d-none', !s.required);
+        $('vote-required').textContent = s.required ? `(${s.required} needed)` : '';
+        const o = s.outcome;
+        $('hc-yay').value = o ? o.yay : ''; $('hc-nay').value = o ? o.nay : '';
+        $('vote-outcome').innerHTML = o
+          ? `Recorded: Yay <b>${o.yay}</b> · Nay <b>${o.nay}</b> (${(o.share * 100).toFixed(1)}% in favor) <span class="badge ${o.passes ? 'text-bg-success' : 'text-bg-warning'}">${o.passes ? 'meets ' + o.required : 'below ' + o.required}</span>`
+          : '<span class="text-secondary">No vote recorded yet.</span>';
+      } else tools.classList.add('d-none');
+    }
+
+    async function load() {
+      const st = await (await fetch(`/meetings/${MID}/state`)).json();
+      slides = st.slides; current = st.current; adhoc = st.adhoc;
+      render(); renderAdhoc();
+    }
+    async function go(i) {
+      i = Math.max(0, Math.min(slides.length - 1, i));
+      current = i; render();
+      await hg.postJSON(`/meetings/${MID}/slide`, { index: i });
+    }
+    // Scroll the projector by a step; the preview follows the same step so it
+    // roughly matches what the room sees.
+    const scroll = (step) => hg.postJSON(`/meetings/${MID}/scroll`, { index: current, step }).catch((e) => alert(e.message));
+    $('preview').addEventListener('scrollend', () => { $('preview')._target = undefined; });
+    $('scroll-top').onclick = () => scroll('top');
+    $('scroll-up').onclick = () => scroll(-1);
+    $('scroll-down').onclick = () => scroll(1);
+    $('prev').onclick = () => go(current - 1);
+    $('next').onclick = () => go(current + 1);
+    $('jump').onchange = (e) => go(Number(e.target.value));
+    document.addEventListener('keydown', (e) => {
+      if (['TEXTAREA', 'INPUT', 'SELECT'].includes(document.activeElement.tagName)) return;
+      if (e.key === 'ArrowRight' || e.key === 'PageDown') go(current + 1);
+      if (e.key === 'ArrowLeft' || e.key === 'PageUp') go(current - 1);
+      if (e.key === 'ArrowDown') { e.preventDefault(); scroll(1); }
+      if (e.key === 'ArrowUp') { e.preventDefault(); scroll(-1); }
+    });
+
+    $('decision-buttons').addEventListener('click', async (e) => {
+      const d = e.target.dataset.decision; const s = slides[current];
+      if (!d || !s) return;
+      if (s.decision && !confirm(`Change decision from ${s.decision} to ${d}?`)) return;
+      try {
+        const r = await hg.postJSON(`/proposals/${s.proposalId}/decision`, { decision: d });
+        const conflicts = (r.results || []).filter((x) => !x.ok);
+        if (conflicts.length) alert('An attached amendment conflicts with the current document. A docs manager needs to resolve it.');
+        appendMinutes(`- **#${s.proposalId}** ${s.title.replace(/^#\d+: /, '')}: **${d}**`);
+      } catch (err) { alert(err.message); }
+    });
+
+    // Minutes: debounced autosave; other consoles' edits apply when you're not typing.
+    const box = $('minutes');
+    let timer = null, lastTyped = 0;
+    async function save() {
+      try { await hg.postJSON(`/meetings/${MID}/minutes`, { minutes: box.value, clientId }); $('saved').textContent = 'Saved ' + new Date().toLocaleTimeString(); }
+      catch (e) { $('saved').textContent = 'Save failed: ' + e.message; }
+    }
+    box.addEventListener('input', () => { lastTyped = Date.now(); clearTimeout(timer); $('saved').textContent = 'Editing…'; timer = setTimeout(save, 700); });
+    function appendMinutes(line) { box.value = box.value.replace(/\s*$/, '') + '\n' + line + '\n'; save(); }
+    $('stamp').onclick = () => { const s = slides[current]; appendMinutes(`\n### ${new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} — ${s ? s.title : ''}`); box.focus(); };
+
+    function renderAdhoc() {
+      $('adhoc-idle').classList.toggle('d-none', !!adhoc);
+      $('adhoc-live').classList.toggle('d-none', !adhoc);
+      if (adhoc) {
+        $('adhoc-title').textContent = adhoc.question;
+        for (const k of ['yay', 'nay']) $('a-' + k).textContent = adhoc.tally[k];
+        const tot = adhoc.tally.yay + adhoc.tally.nay;
+        $('a-share').textContent = tot ? `(${(adhoc.tally.yay / tot * 100).toFixed(0)}% yay)` : '';
+        $('adhoc-close').textContent = adhoc.proposal_id ? 'Close vote & record on proposal + minutes' : 'Close vote & record in minutes';
+      }
+    }
+    $('adhoc-open').onclick = async () => { const r = await hg.postJSON(`/meetings/${MID}/adhoc`, { question: $('adhoc-q').value }); adhoc = r.adhoc; $('adhoc-q').value = ''; renderAdhoc(); };
+    $('vote-call').onclick = async () => {
+      const s = slides[current]; if (!s) return;
+      if (adhoc && !confirm('Close the current vote and start one on this proposal?')) return;
+      const r = await hg.postJSON(`/meetings/${MID}/adhoc`, { proposal_id: s.proposalId }); adhoc = r.adhoc; renderAdhoc();
+    };
+    $('hc-save').onclick = async () => {
+      const s = slides[current]; if (!s) return;
+      try {
+        const r = await hg.postJSON(`/proposals/${s.proposalId}/votes`, { yay: $('hc-yay').value, nay: $('hc-nay').value });
+        appendMinutes(`- **#${s.proposalId}** hand count: Yay ${r.outcome.yay}, Nay ${r.outcome.nay}`);
+      } catch (err) { alert(err.message); }
+    };
+    $('adhoc-close').onclick = async () => { if (!adhoc) return; await hg.postJSON(`/meetings/${MID}/adhoc/${adhoc.id}/close`); adhoc = null; renderAdhoc(); };
+
+    const socket = io();
+    socket.on('connect', () => { socket.emit('join', `meeting:${MID}`); load(); });
+    socket.on('slide', ({ index }) => { current = index; render(); });
+    socket.on('agenda', load);
+    socket.on('adhoc', (v) => { adhoc = v; renderAdhoc(); });
+    socket.on('scroll', ({ index, step }) => {
+      if (index !== current) return;
+      const el = $('preview');
+      const from = el._target ?? el.scrollTop;
+      el._target = step === 'top' ? 0 : Math.max(0, Math.min(el.scrollHeight - el.clientHeight, from + step * el.clientHeight * 0.6));
+      el.scrollTo({ top: el._target, behavior: 'smooth' });
+    });
+    socket.on('minutes', ({ minutes, clientId: from }) => {
+      if (from === clientId) return;
+      if (Date.now() - lastTyped > 3000) box.value = minutes;
+    });
+    socket.on('presence', (n) => { $('viewers').textContent = n; });
+    setInterval(() => socket.emit('presence', `meeting:${MID}`), 5000);
+    setTimeout(() => socket.emit('presence', `meeting:${MID}`), 500);
+  })();
+</script>
+<%- include('../partials/foot') %>

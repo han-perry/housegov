@@ -1,0 +1,56 @@
+<%- include('../partials/head') %>
+<%
+  const statusLabel = { open: 'Open', agenda: 'On agenda', decided: 'Decided', dismissed: 'Dismissed' };
+  const qs = (overrides) => new URLSearchParams({ q, status, type, page, ...overrides }).toString();
+%>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">Proposals</h1>
+  <% if (user && user.hasPermission(GOVPERMS.PROPOSE)) { %><a href="/proposals/new" class="btn btn-dark">Submit proposal</a><% } %>
+</div>
+
+<form class="row g-2 mb-3" method="get">
+  <div class="col-md-6"><input name="q" value="<%= q %>" class="form-control" placeholder="Search title, summary, text, authors… or #number"></div>
+  <div class="col-6 col-md-2">
+    <select name="status" class="form-select">
+      <option value="all">Any status</option>
+      <% Object.entries(statusLabel).forEach(([k, v]) => { %><option value="<%= k %>" <%= status === k ? 'selected' : '' %>><%= v %></option><% }) %>
+    </select>
+  </div>
+  <div class="col-6 col-md-3">
+    <select name="type" class="form-select">
+      <option value="">Any type</option>
+      <% Object.entries(TYPES).forEach(([k, t]) => { %><option value="<%= k %>" <%= type === k ? 'selected' : '' %>><%= t.label %></option><% }) %>
+    </select>
+  </div>
+  <div class="col-md-1 d-grid"><button class="btn btn-outline-secondary">Go</button></div>
+</form>
+
+<p class="meta"><%= total %> proposal<%= total === 1 ? '' : 's' %><%= q ? ` matching "${q}"` : '' %></p>
+
+<div class="list-group mb-3">
+  <% rows.forEach(p => { %>
+    <a href="/proposals/<%= p.id %>" class="list-group-item list-group-item-action py-3">
+      <div class="d-flex justify-content-between">
+        <div><span class="text-secondary">#<%= p.id %></span> <span class="fw-medium"><%= p.title %></span></div>
+        <div>
+          <% if (p.decision) { %><span class="badge text-bg-<%= p.decision === 'APPROVED' ? 'success' : p.decision === 'REJECTED' ? 'danger' : 'secondary' %> status-badge"><%= p.decision %></span>
+          <% } else { %><span class="badge text-bg-light border status-badge"><%= statusLabel[p.status] %></span><% } %>
+        </div>
+      </div>
+      <div class="small text-secondary mt-1 content-serif"><%= p.summary.length > 220 ? p.summary.slice(0, 220) + '…' : p.summary %></div>
+      <div class="meta mt-1"><%= TYPES[p.type].label %> · <%= p.author %><%= p.coauthors ? ' & ' + p.coauthors : '' %> · <%= fmtDate(p.created_at, {dateOnly: true}) %></div>
+    </a>
+  <% }) %>
+  <% if (!rows.length) { %><div class="list-group-item text-secondary">No proposals found.</div><% } %>
+</div>
+
+<% if (pages > 1) { %>
+<nav><ul class="pagination">
+  <li class="page-item <%= page <= 1 ? 'disabled' : '' %>"><a class="page-link" href="?<%= qs({ page: page - 1 }) %>">Previous</a></li>
+  <% for (let i = Math.max(1, page - 3); i <= Math.min(pages, page + 3); i++) { %>
+    <li class="page-item <%= i === page ? 'active' : '' %>"><a class="page-link" href="?<%= qs({ page: i }) %>"><%= i %></a></li>
+  <% } %>
+  <li class="page-item <%= page >= pages ? 'disabled' : '' %>"><a class="page-link" href="?<%= qs({ page: page + 1 }) %>">Next</a></li>
+</ul></nav>
+<% } %>
+<%- include('../partials/foot') %>

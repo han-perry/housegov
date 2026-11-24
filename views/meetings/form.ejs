@@ -1,0 +1,31 @@
+<%- include('../partials/head') %>
+<h1 class="h3">Schedule a Meeting</h1>
+<form method="post" action="/meetings" class="card card-body" style="max-width: 40rem">
+  <div class="mb-3">
+    <label class="form-label fw-medium" for="title">Meeting Title</label>
+    <input class="form-control" id="title" name="title" required>
+    <div class="form-text">Keep the title concise and to the point. This will appear on the summary agenda sent out to the House before the meeting.</div>
+  </div>
+  <div class="row g-3 mb-3">
+    <div class="col-sm-6"><label class="form-label fw-medium" for="meeting_at">Meeting date &amp; time</label><input type="datetime-local" class="form-control" id="meeting_at" name="meeting_at" required></div>
+    <div class="col-sm-6"><label class="form-label fw-medium" for="cutoff_at">Proposal cutoff</label><input type="datetime-local" class="form-control" id="cutoff_at" name="cutoff_at" required>
+      <div class="form-text">Proposals submitted after this go to the following meeting.</div></div>
+  </div>
+  <div class="mb-3">
+    <label class="form-label fw-medium" for="preface">Preface text (markdown)</label>
+    <textarea class="form-control" id="preface" name="preface" rows="3"></textarea>
+  </div>
+  <p class="small text-secondary">Standing sections (House Chair's Announcements, President's Announcements, Committee Reports) are added automatically. You can edit or remove them.</p>
+  <div><button class="btn btn-dark">Create meeting</button></div>
+</form>
+<script>
+  // Default: next Sunday 9pm, cutoff Friday 11:59pm.
+  (() => {
+    const fmt = (d) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    const m = new Date(); m.setDate(m.getDate() + ((7 - m.getDay()) % 7 || 7)); m.setHours(21, 0, 0, 0);
+    const c = new Date(m); c.setDate(c.getDate() - 2); c.setHours(23, 59, 0, 0);
+    document.getElementById('meeting_at').value = fmt(m);
+    document.getElementById('cutoff_at').value = fmt(c);
+  })();
+</script>
+<%- include('../partials/foot') %>

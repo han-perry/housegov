@@ -1,0 +1,56 @@
+<%- include('../partials/head') %>
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+  <div>
+    <h1 class="h3 mb-0"><%= m.title %></h1>
+    <div class="meta"><%= fmtDate(m.meeting_at) %> · <%= m.status === 'completed' ? 'Completed' : m.status === 'live' ? 'In progress' : 'Scheduled' %></div>
+  </div>
+  <div class="btn-group btn-group-sm">
+    <% if (m.status !== 'completed') { %><a class="btn btn-outline-secondary" href="/meetings/<%= m.id %>/live">Live view</a><% } %>
+    <a class="btn btn-outline-secondary" href="/meetings/<%= m.id %>/slides" target="_blank">Slides</a>
+    <% if (user && user.hasPermission(GOVPERMS.MANAGE)) { %><a class="btn btn-outline-secondary" href="/meetings/<%= m.id %>/manage">Manage</a><% } %>
+    <% if (user && user.hasPermission([GOVPERMS.PRESENTATION, GOVPERMS.MANAGE]) && m.status !== 'completed') { %><a class="btn btn-dark" href="/meetings/<%= m.id %>/console">Presenter console</a><% } %>
+  </div>
+</div>
+
+<% if (m.status === 'scheduled') { %>
+  <div class="alert alert-light border mt-3 small">
+    Proposal cutoff: <b><%= fmtDate(m.cutoff_at) %></b><% if (new Date() < new Date(m.cutoff_at)) { %> (<span data-countdown="<%= new Date(m.cutoff_at).toISOString() %>" data-style="inline"></span> left)<% } %>.
+  </div>
+<% } %>
+
+<% if (m.preface) { %><div class="content-serif mt-3"><%- md(m.preface) %></div><% } %>
+
+<h2 class="h5 mt-4">Agenda</h2>
+<ol class="list-group list-group-numbered mb-4">
+  <% items.forEach(i => { %>
+    <li class="list-group-item">
+      <% if (i.kind === 'block') { %>
+        <span class="fw-medium"><%= i.title %></span>
+        <% if (i.body) { %><div class="content-serif small mt-1"><%- md(i.body) %></div><% } %>
+      <% } else if (i.p) { %>
+        <a href="/proposals/<%= i.p.id %>" class="fw-medium">#<%= i.p.id %>: <%= i.p.title %></a>
+        <span class="meta">— <%= TYPES[i.p.type].label %> by <%= i.p.author %></span>
+        <% if (i.p.decision) { %><span class="badge text-bg-secondary ms-1"><%= i.p.decision %></span><% } %>
+        <% i.p.attachments.filter(a => a.kind === 'amendment').forEach(a => { %>
+          <div class="small mt-1">Amends <a href="/docs/<%= a.doc_slug %>"><%= a.doc_title || a.doc_slug %></a>: <a href="/docs/amendments/<%= a.amendment_id %>"><%= a.amendment_title %></a> <span class="meta">(<%= a.amendment_status %>)</span></div>
+        <% }) %>
+        <div class="small text-secondary content-serif mt-1"><%- md(i.p.summary) %></div>
+      <% } %>
+    </li>
+  <% }) %>
+  <% if (!items.length) { %><li class="list-group-item text-secondary">Nothing on the agenda yet.</li><% } %>
+</ol>
+
+<% if (adhoc.length) { %>
+  <h2 class="h5">Ad hoc votes</h2>
+  <table class="table table-sm" style="max-width: 40rem">
+    <thead><tr><th>Question</th><th class="text-end">Yay</th><th class="text-end">Nay</th></tr></thead>
+    <tbody><% adhoc.forEach(v => { %><tr><td><%= v.question %></td><td class="text-end"><%= v.tally.yay %></td><td class="text-end"><%= v.tally.nay %></td></tr><% }) %></tbody>
+  </table>
+<% } %>
+
+<% if (m.minutes) { %>
+  <h2 class="h5">Minutes</h2>
+  <div class="card card-body content-serif"><%- md(m.minutes) %></div>
+<% } %>
+<%- include('../partials/foot') %>

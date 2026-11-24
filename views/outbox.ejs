@@ -1,0 +1,12 @@
+<%- include('partials/head') %>
+<h1 class="h3">Mail outbox</h1>
+<p class="text-secondary small">Set <code>SMTP_URL</code> to send real mail. Note: in dev this table pairs recipients with secret ballot codes, which is exactly why it isn't used in production.</p>
+<% mails.forEach(m => { %>
+  <div class="card mb-2"><div class="card-body">
+    <div class="meta"><%= fmtDate(m.created_at) %> · to <%= m.to_addr %></div>
+    <div class="fw-medium"><%= m.subject %></div>
+    <pre class="small mb-0 mt-2" style="white-space: pre-wrap"><%= m.body %></pre>
+  </div></div>
+<% }) %>
+<% if (!mails.length) { %><p class="text-secondary">Nothing sent yet.</p><% } %>
+<%- include('partials/foot') %>

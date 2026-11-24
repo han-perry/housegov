@@ -1,0 +1,155 @@
+<%- include('../partials/head') %>
+<%
+  // Free-text answers are left out of the ledger: they're long, and writing
+  // style could identify a voter. Poll admins read them in the results above.
+  const ledgerQs = poll.questions.filter(q => q.type !== 'text');
+  const label = (q, id) => typeof id === 'string' && id.startsWith('writein:') ? id.slice(8) + ' (write-in)' : (q.options.find(o => o.id === id) || {}).label || id;
+  const summarize = (q, a) => {
+    if (a === undefined || a === null) return '';
+    if (Array.isArray(a)) return q.type === 'vote' ? a.map((id, i) => `${i + 1}. ${label(q, id)}`).join('  ›  ') : a.map(id => label(q, id)).join(', ');
+    if (typeof a === 'object') return a.writeIn + ' (write-in)';
+    return label(q, a);
+  };
+%>
+<div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+  <div>
+    <h1 class="h3 mb-1">Results: <%= poll.title %></h1>
+    <div class="meta"><%= poll.status === 'closed' ? 'Final results' : 'Live results: voting is still open' %><% if (results) { %> · <span id="counts"><%= results.counted %> counted of <%= results.ballotCount %> ballots</span><% } %></div>
+  </div>
+  <a class="btn btn-sm btn-outline-secondary" href="/polls/<%= poll.id %>">Back to poll</a>
+</div>
+
+<% if (!visible) { %>
+  <div class="alert alert-secondary">Results will be published when voting closes on <%= fmtDate(poll.closes_at) %>.</div>
+<% } else { %>
+  <div id="tallies"></div>
+
+  <h2 class="h5 mt-4">Public ledger</h2>
+  <p class="small text-secondary">Every ballot by vote ID. Find your vote ID to confirm your ballot was counted as cast.
+    <% if (isManager) { %>As House Chair you can exclude ballots from the count. Exclusions are public.<% } %>
+    <% if (poll.questions.some(q => q.type === 'text')) { %>Free-response answers aren't shown here.<% } %></p>
+  <input class="form-control form-control-sm mb-2" style="max-width: 20rem" id="ledger-search" placeholder="Search vote ID or answer">
+  <div class="table-responsive">
+    <table class="table table-sm align-middle" id="ledger">
+      <thead><tr>
+        <th>Counted</th><th>Vote ID</th>
+        <% if (!poll.secret && isManager) { %><th>Voter</th><% } %>
+        <% ledgerQs.forEach(q => { %><th class="small"><%- mdInline(q.prompt) %></th><% }) %>
+      </tr></thead>
+      <tbody>
+        <% ledger.forEach(b => { %>
+          <tr class="<%= b.excluded ? 'table-secondary text-decoration-line-through' : '' %>">
+            <td><input type="checkbox" class="form-check-input" data-vote="<%= b.vote_id %>" <%= b.excluded ? '' : 'checked' %> <%= isManager ? '' : 'disabled' %> aria-label="Counted"></td>
+            <td><code class="vote-id"><%= b.vote_id %></code></td>
+            <% if (!poll.secret && isManager) { %><td><%= b.username %></td><% } %>
+            <% ledgerQs.forEach(q => { %><td class="small"><%= summarize(q, b.answers[String(q.id)]) %></td><% }) %>
+          </tr>
+        <% }) %>
+        <% if (!ledger.length) { %><tr><td colspan="99" class="text-secondary">No ballots yet.</td></tr><% } %>
+      </tbody>
+    </table>
+  </div>
+<% } %>
+
+<% if (visible) { %>
+<script src="/vendor/chartjs/chart.umd.min.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  (() => {
+    const PID = <%= poll.id %>;
+    let data = <%- JSON.stringify(results).replace(/</g, '\\u003c') %>;
+    // Prompts are inline markdown, rendered (and sanitized) on the server.
+    const promptHtml = <%- JSON.stringify(Object.fromEntries(poll.questions.map(q => [q.id, mdInline(q.prompt)]))).replace(/</g, '\\u003c') %>;
+    const charts = {};
+    const esc = hg.escapeHtml;
+    const pct = (x) => (x * 100).toFixed(1) + '%';
+
+    function thresholdBadge(row) {
+      if (!row || !row.threshold) return '';
+      return `<span class="badge ${row.threshold.met ? 'text-bg-success' : 'text-bg-warning'} ms-1">${row.threshold.met ? 'meets' : 'below'} ${row.threshold.required}%</span>`;
+    }
+
+    function render() {
+      const root = document.getElementById('tallies');
+      // Build cards once, then update charts in place for real-time updates.
+      data.tallies.forEach((t, i) => {
+        let card = document.getElementById('t' + t.questionId);
+        if (!card) {
+          card = document.createElement('div');
+          card.className = 'card mb-3'; card.id = 't' + t.questionId;
+          card.innerHTML = `<div class="card-body"><h2 class="h6 content-serif">${i + 1}. ${promptHtml[t.questionId] ?? esc(t.prompt)}</h2><div class="summary small mb-2"></div><div class="chart-wrap"><canvas></canvas></div><div class="extra small mt-2"></div></div>`;
+          root.appendChild(card);
+        }
+        const summary = card.querySelector('.summary'), extra = card.querySelector('.extra');
+        if (t.kind === 'text') {
+          card.querySelector('.chart-wrap').style.display = 'none';
+          summary.textContent = `${t.total} response${t.total === 1 ? '' : 's'}` + (t.hidden ? ' · only poll admins can read free responses' : '');
+          extra.innerHTML = t.hidden ? '' : '<ul class="mb-0">' + t.responses.map((r) => `<li class="content-serif">${esc(r)}</li>`).join('') + '</ul>';
+          return;
+        }
+        const rows = t.rows;
+        if (t.kind === 'irv') {
+          summary.innerHTML = t.winner ? `Winner after ${t.rounds.length} round${t.rounds.length === 1 ? '' : 's'}: <b>${esc(t.winner.label)}</b> (${pct(t.winner.share)})${thresholdBadge(t.winner)}` : `${t.total} ballots`;
+          extra.innerHTML = `<details><summary>Round-by-round</summary><table class="table table-sm mt-2"><thead><tr><th>Round</th><th>Counts</th><th>Exhausted</th><th>Eliminated</th></tr></thead><tbody>` +
+            t.rounds.map((r, ri) => `<tr><td>${ri + 1}</td><td>${r.counts.map((c) => `${esc(c.label)}: ${c.count}`).join(', ')}</td><td>${r.exhausted}</td><td>${esc(r.eliminated || '—')}</td></tr>`).join('') + '</tbody></table></details>';
+        } else {
+          summary.innerHTML = `${t.total} ballots`;
+          if (t.thresholdRequired !== null && t.type !== 'multi') {
+            // Threshold applies to the leading option only.
+            const lead = rows.find((r) => r.threshold);
+            summary.innerHTML += lead
+              ? ` · ${esc(lead.label)} leads with ${pct(lead.share)}${thresholdBadge(lead)}`
+              : ` · <span class="badge text-bg-warning">no option leads; ${t.thresholdRequired}% needed</span>`;
+          } else {
+            summary.innerHTML += rows.filter((r) => r.threshold).map((r) => ` · ${esc(r.label)} ${pct(r.share)}${thresholdBadge(r)}`).join('');
+          }
+        }
+        const labels = rows.map((r) => r.label);
+        const values = rows.map((r) => r.count);
+        const wrap = card.querySelector('.chart-wrap');
+        wrap.style.height = Math.max(120, rows.length * 38) + 'px';
+        if (charts[t.questionId]) {
+          charts[t.questionId].data.labels = labels;
+          charts[t.questionId].data.datasets[0].data = values;
+          charts[t.questionId].update();
+        } else {
+          charts[t.questionId] = new Chart(card.querySelector('canvas'), {
+            type: 'bar',
+            data: { labels, datasets: [{ data: values, backgroundColor: '#3f3f46', borderRadius: 4 }] },
+            options: {
+              indexAxis: 'y', maintainAspectRatio: false, animation: { duration: 300 },
+              plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => `${c.raw} (${pct(rows[c.dataIndex] ? rows[c.dataIndex].share : 0)})` } } },
+              scales: { x: { beginAtZero: true, ticks: { precision: 0 } } },
+            },
+          });
+        }
+      });
+      const counts = document.getElementById('counts');
+      if (counts) counts.textContent = `${data.counted} counted of ${data.ballotCount} ballots`;
+    }
+    render();
+
+    const socket = io();
+    socket.on('connect', () => socket.emit('join', `poll:${PID}`));
+    // The broadcast omits free responses; admins refetch their full view.
+    const isManager = <%= !!isManager %>;
+    socket.on('results', async (r) => {
+      data = isManager ? await (await fetch(`/polls/${PID}/results.json`)).json() : r;
+      render();
+    });
+
+    document.getElementById('ledger-search').addEventListener('input', (e) => {
+      const q = e.target.value.toLowerCase();
+      document.querySelectorAll('#ledger tbody tr').forEach((tr) => { tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none'; });
+    });
+    document.querySelectorAll('[data-vote]').forEach((cb) => cb.addEventListener('change', async () => {
+      try {
+        await hg.postJSON(`/polls/${PID}/ballots/${cb.dataset.vote}/exclude`, { excluded: !cb.checked });
+        cb.closest('tr').classList.toggle('table-secondary', !cb.checked);
+        cb.closest('tr').classList.toggle('text-decoration-line-through', !cb.checked);
+      } catch (e) { alert(e.message); cb.checked = !cb.checked; }
+    }));
+  })();
+</script>
+<% } %>
+<%- include('../partials/foot') %>

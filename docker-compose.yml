@@ -1,0 +1,38 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: housegov
+      POSTGRES_PASSWORD: housegov
+      POSTGRES_DB: housegov
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5432:5432" # exposed so `npm run dev` on the host can use it
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U housegov"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://housegov:housegov@db:5432/housegov
+      BASE_URL: ${BASE_URL:-http://localhost:3000}
+      SESSION_SECRET: ${SESSION_SECRET:-dev-only-change-me}
+      DEV_AUTH: ${DEV_AUTH:-1}
+      SMTP_URL: ${SMTP_URL:-}
+      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
+    volumes:
+      - govdocs:/data
+    ports:
+      - "3000:3000"
+
+volumes:
+  pgdata:
+  govdocs:
