@@ -9,11 +9,12 @@
 import type { Server as HttpServer } from "node:http";
 import type { RequestHandler } from "express";
 import { Server } from "socket.io";
+import { config } from "./config";
 
 let io: Server | null = null;
 
 export function init(httpServer: HttpServer, sessionMiddleware: RequestHandler): Server {
-  io = new Server(httpServer);
+  io = new Server(httpServer, { path: `${config.basePath}/socket.io` });
   io.engine.use(sessionMiddleware);
   io.on("connection", (socket) => {
     socket.on("join", (room: unknown) => {

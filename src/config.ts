@@ -3,10 +3,29 @@ import path from "node:path";
 const root = path.resolve(__dirname, "..");
 const port = Number(process.env.PORT || 3000);
 
+/**
+ * The app can live under a sub-path behind a path-routing proxy, e.g.
+ * BASE_URL=https://example.org/housegov. The path part ("/housegov") is the
+ * base path; BASE_PATH overrides it. The proxy must pass the full path through
+ * (don't strip the prefix).
+ */
+const rawBaseUrl = new URL(process.env.BASE_URL || `http://localhost:${port}`);
+const basePath = (process.env.BASE_PATH ?? rawBaseUrl.pathname).replace(/\/+$/, "").replace(/^(?=[^/])/, "/");
+if (basePath && !/^(\/[A-Za-z0-9._~-]+)+$/.test(basePath)) throw new Error(`Invalid base path: ${basePath}`);
+
+/** Prefix a root-relative path ("/proposals") with the base path, once. */
+export function withBase(p: string): string {
+  if (!basePath || !p.startsWith("/") || p.startsWith("//")) return p;
+  return p === basePath || p.startsWith(basePath + "/") || p.startsWith(basePath + "?") ? p : basePath + p;
+}
+
 export const config = {
   root,
   port,
-  baseUrl: process.env.BASE_URL || `http://localhost:${port}`,
+  /** Absolute URL of the app including the base path, no trailing slash (emails, QR codes, embeds). */
+  baseUrl: rawBaseUrl.origin + basePath,
+  /** "" at the root, or e.g. "/housegov". */
+  basePath,
   databaseUrl: process.env.DATABASE_URL || "postgres://housegov:housegov@localhost:5432/housegov_dev",
   // Git repositories for GovDocs live here (a Docker volume in production).
   dataDir: process.env.DATA_DIR || path.join(root, "data"),

@@ -5,10 +5,10 @@
     <div class="meta"><%= fmtDate(m.meeting_at) %> · <%= m.status === 'completed' ? 'Completed' : m.status === 'live' ? 'In progress' : 'Scheduled' %></div>
   </div>
   <div class="btn-group btn-group-sm">
-    <% if (m.status !== 'completed') { %><a class="btn btn-outline-secondary" href="/meetings/<%= m.id %>/live">Live view</a><% } %>
-    <a class="btn btn-outline-secondary" href="/meetings/<%= m.id %>/slides" target="_blank">Slides</a>
-    <% if (user && user.hasPermission(GOVPERMS.MANAGE)) { %><a class="btn btn-outline-secondary" href="/meetings/<%= m.id %>/manage">Manage</a><% } %>
-    <% if (user && user.hasPermission([GOVPERMS.PRESENTATION, GOVPERMS.MANAGE]) && m.status !== 'completed') { %><a class="btn btn-dark" href="/meetings/<%= m.id %>/console">Presenter console</a><% } %>
+    <% if (m.status !== 'completed') { %><a class="btn btn-outline-secondary" href="<%= base %>/meetings/<%= m.id %>/live">Live view</a><% } %>
+    <a class="btn btn-outline-secondary" href="<%= base %>/meetings/<%= m.id %>/slides" target="_blank">Slides</a>
+    <% if (user && user.hasPermission(GOVPERMS.MANAGE)) { %><a class="btn btn-outline-secondary" href="<%= base %>/meetings/<%= m.id %>/manage">Manage</a><% } %>
+    <% if (user && user.hasPermission([GOVPERMS.PRESENTATION, GOVPERMS.MANAGE]) && m.status !== 'completed') { %><a class="btn btn-dark" href="<%= base %>/meetings/<%= m.id %>/console">Presenter console</a><% } %>
   </div>
 </div>
 
@@ -28,11 +28,11 @@
         <span class="fw-medium"><%= i.title %></span>
         <% if (i.body) { %><div class="content-serif small mt-1"><%- md(i.body) %></div><% } %>
       <% } else if (i.p) { %>
-        <a href="/proposals/<%= i.p.id %>" class="fw-medium">#<%= i.p.id %>: <%= i.p.title %></a>
+        <a href="<%= base %>/proposals/<%= i.p.id %>" class="fw-medium">#<%= i.p.id %>: <%= i.p.title %></a>
         <span class="meta">— <%= TYPES[i.p.type].label %> by <%= i.p.author %></span>
         <% if (i.p.decision) { %><span class="badge text-bg-secondary ms-1"><%= i.p.decision %></span><% } %>
         <% i.p.attachments.filter(a => a.kind === 'amendment').forEach(a => { %>
-          <div class="small mt-1">Amends <a href="/docs/<%= a.doc_slug %>"><%= a.doc_title || a.doc_slug %></a>: <a href="/docs/amendments/<%= a.amendment_id %>"><%= a.amendment_title %></a> <span class="meta">(<%= a.amendment_status %>)</span></div>
+          <div class="small mt-1">Amends <a href="<%= base %>/docs/<%= a.doc_slug %>"><%= a.doc_title || a.doc_slug %></a>: <a href="<%= base %>/docs/amendments/<%= a.amendment_id %>"><%= a.amendment_title %></a> <span class="meta">(<%= a.amendment_status %>)</span></div>
         <% }) %>
         <div class="small text-secondary content-serif mt-1"><%- md(i.p.summary) %></div>
       <% } %>

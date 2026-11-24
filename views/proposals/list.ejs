@@ -5,7 +5,7 @@
 %>
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h1 class="h3 mb-0">Proposals</h1>
-  <% if (user && user.hasPermission(GOVPERMS.PROPOSE)) { %><a href="/proposals/new" class="btn btn-dark">Submit proposal</a><% } %>
+  <% if (user && user.hasPermission(GOVPERMS.PROPOSE)) { %><a href="<%= base %>/proposals/new" class="btn btn-dark">Submit proposal</a><% } %>
 </div>
 
 <form class="row g-2 mb-3" method="get">
@@ -29,7 +29,7 @@
 
 <div class="list-group mb-3">
   <% rows.forEach(p => { %>
-    <a href="/proposals/<%= p.id %>" class="list-group-item list-group-item-action py-3">
+    <a href="<%= base %>/proposals/<%= p.id %>" class="list-group-item list-group-item-action py-3">
       <div class="d-flex justify-content-between">
         <div><span class="text-secondary">#<%= p.id %></span> <span class="fw-medium"><%= p.title %></span></div>
         <div>

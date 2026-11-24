@@ -1,9 +1,18 @@
 // Shared browser helpers, bundled by esbuild into /static/build/app.js.
 // Page-specific scripts (inline in the EJS views) use these via `window.hg`.
 
+/** The app's base path ("" or e.g. "/housegov"), from <html data-base>. */
+const base = document.documentElement.dataset.base || "";
+
+/** Prefix a root-relative path with the base path (once). */
+function url(p: string): string {
+  if (!base || !p.startsWith("/") || p.startsWith("//") || p === base || p.startsWith(base + "/")) return p;
+  return base + p;
+}
+
 /** POST JSON and return the parsed response; throws with the server's error text. */
-async function postJSON<T = Record<string, unknown>>(url: string, body?: unknown, method = "POST"): Promise<T> {
-  const res = await fetch(url, {
+async function postJSON<T = Record<string, unknown>>(path: string, body?: unknown, method = "POST"): Promise<T> {
+  const res = await fetch(url(path), {
     method,
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify(body ?? {}),
@@ -47,7 +56,7 @@ function escapeHtml(s: unknown): string {
   return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 }
 
-const hg = { postJSON, escapeHtml, startCountdowns };
+const hg = { base, url, postJSON, escapeHtml, startCountdowns };
 declare global {
   interface Window {
     hg: typeof hg;

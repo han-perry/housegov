@@ -1,6 +1,6 @@
 <%- include('../partials/head', { useEditor: true }) %>
 <h1 class="h3">New policy document</h1>
-<form method="post" action="/docs" class="card card-body">
+<form method="post" action="<%= base %>/docs" class="card card-body">
   <div class="row g-3 mb-3">
     <div class="col-md-5"><label class="form-label fw-medium" for="title">Title</label><input class="form-control" id="title" name="title" required></div>
     <div class="col-md-4"><label class="form-label fw-medium" for="slug">URL slug</label><div class="input-group"><span class="input-group-text">/docs/</span><input class="form-control" id="slug" name="slug" pattern="[a-z0-9][a-z0-9\-]*" required></div></div>

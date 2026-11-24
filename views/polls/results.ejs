@@ -16,7 +16,7 @@
     <h1 class="h3 mb-1">Results: <%= poll.title %></h1>
     <div class="meta"><%= poll.status === 'closed' ? 'Final results' : 'Live results: voting is still open' %><% if (results) { %> · <span id="counts"><%= results.counted %> counted of <%= results.ballotCount %> ballots</span><% } %></div>
   </div>
-  <a class="btn btn-sm btn-outline-secondary" href="/polls/<%= poll.id %>">Back to poll</a>
+  <a class="btn btn-sm btn-outline-secondary" href="<%= base %>/polls/<%= poll.id %>">Back to poll</a>
 </div>
 
 <% if (!visible) { %>
@@ -52,8 +52,8 @@
 <% } %>
 
 <% if (visible) { %>
-<script src="/vendor/chartjs/chart.umd.min.js"></script>
-<script src="/socket.io/socket.io.js"></script>
+<script src="<%= base %>/vendor/chartjs/chart.umd.min.js"></script>
+<script src="<%= base %>/socket.io/socket.io.js"></script>
 <script>
   (() => {
     const PID = <%= poll.id %>;
@@ -129,12 +129,12 @@
     }
     render();
 
-    const socket = io();
+    const socket = io({ path: hg.base + '/socket.io' });
     socket.on('connect', () => socket.emit('join', `poll:${PID}`));
     // The broadcast omits free responses; admins refetch their full view.
     const isManager = <%= !!isManager %>;
     socket.on('results', async (r) => {
-      data = isManager ? await (await fetch(`/polls/${PID}/results.json`)).json() : r;
+      data = isManager ? await (await fetch(hg.url(`/polls/${PID}/results.json`))).json() : r;
       render();
     });
 

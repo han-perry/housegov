@@ -18,7 +18,7 @@
 
 <% if (canEdit) { %>
   <div class="collapse mb-3" id="edit">
-    <form method="post" action="/orgchart" class="card card-body">
+    <form method="post" action="<%= base %>/orgchart" class="card card-body">
       <p class="small text-secondary mb-2">One role per line, written <code>Role: username, username</code>. Indent two spaces to put a role under the one above it. A line without a colon is a group heading.</p>
       <textarea name="text" class="form-control font-mono" rows="12"><%= text %></textarea>
       <div class="mt-2"><button class="btn btn-sm btn-dark">Save</button></div>
@@ -44,6 +44,6 @@
     %>
     <%- list(tree) %>
   </details>
-  <script src="/static/build/orgchart.js" defer></script>
+  <script src="<%= base %>/static/build/orgchart.js" defer></script>
 <% } %>
 <%- include('../partials/foot') %>

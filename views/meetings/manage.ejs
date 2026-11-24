@@ -2,8 +2,8 @@
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
   <h1 class="h3 mb-0">Manage: <%= m.title %></h1>
   <div class="btn-group btn-group-sm">
-    <a class="btn btn-outline-secondary" href="/meetings/<%= m.id %>">Public agenda</a>
-    <a class="btn btn-dark" href="/meetings/<%= m.id %>/console">Presenter console</a>
+    <a class="btn btn-outline-secondary" href="<%= base %>/meetings/<%= m.id %>">Public agenda</a>
+    <a class="btn btn-dark" href="<%= base %>/meetings/<%= m.id %>/console">Presenter console</a>
   </div>
 </div>
 
@@ -19,16 +19,16 @@
               <% if (i.kind === 'block') { %>
                 <span class="fw-medium"><%= i.title %></span> <span class="badge text-bg-light border">content</span>
               <% } else { %>
-                <a href="/proposals/<%= i.proposal_id %>" class="fw-medium">#<%= i.proposal_id %>: <%= i.p_title %></a>
+                <a href="<%= base %>/proposals/<%= i.proposal_id %>" class="fw-medium">#<%= i.proposal_id %>: <%= i.p_title %></a>
                 <span class="meta">— <%= TYPES[i.p_type].label %> by <%= i.p_author %></span>
               <% } %>
             </div>
-            <form method="post" action="/meetings/<%= m.id %>/items/<%= i.id %>/delete" onsubmit="return confirm('Remove from agenda?')"><button class="btn btn-sm btn-link text-danger p-0">remove</button></form>
+            <form method="post" action="<%= base %>/meetings/<%= m.id %>/items/<%= i.id %>/delete" onsubmit="return confirm('Remove from agenda?')"><button class="btn btn-sm btn-link text-danger p-0">remove</button></form>
           </div>
           <% if (i.kind === 'block') { %>
             <details class="mt-2">
               <summary class="small">Edit content</summary>
-              <form method="post" action="/meetings/<%= m.id %>/items/<%= i.id %>" class="mt-2">
+              <form method="post" action="<%= base %>/meetings/<%= m.id %>/items/<%= i.id %>" class="mt-2">
                 <input name="title" value="<%= i.title %>" class="form-control form-control-sm mb-1">
                 <textarea name="body" class="form-control form-control-sm font-mono" rows="5" placeholder="Markdown. Each bullet becomes a line on the slide."><%= i.body %></textarea>
                 <button class="btn btn-sm btn-outline-dark mt-1">Save</button>
@@ -41,7 +41,7 @@
 
     <details class="card card-body mb-4">
       <summary class="fw-medium">Add a content block</summary>
-      <form method="post" action="/meetings/<%= m.id %>/items" class="mt-2">
+      <form method="post" action="<%= base %>/meetings/<%= m.id %>/items" class="mt-2">
         <input name="title" class="form-control mb-2" placeholder="Title (e.g. Treasurer's Report)" required>
         <textarea name="body" class="form-control font-mono mb-2" rows="5" placeholder="Markdown content"></textarea>
         <button class="btn btn-dark btn-sm">Add block</button>
@@ -54,15 +54,15 @@
     <div class="list-group mb-4">
       <% open.forEach(p => { %>
         <div class="list-group-item d-flex justify-content-between align-items-center">
-          <div><a href="/proposals/<%= p.id %>">#<%= p.id %>: <%= p.title %></a><div class="meta"><%= TYPES[p.type].label %> · <%= p.author %> · <%= fmtDate(p.created_at, {dateOnly: true}) %><%= new Date(p.created_at) > new Date(m.cutoff_at) ? ' · after cutoff' : '' %></div></div>
-          <form method="post" action="/proposals/<%= p.id %>/agenda"><input type="hidden" name="meeting_id" value="<%= m.id %>"><button class="btn btn-sm btn-outline-dark">Add</button></form>
+          <div><a href="<%= base %>/proposals/<%= p.id %>">#<%= p.id %>: <%= p.title %></a><div class="meta"><%= TYPES[p.type].label %> · <%= p.author %> · <%= fmtDate(p.created_at, {dateOnly: true}) %><%= new Date(p.created_at) > new Date(m.cutoff_at) ? ' · after cutoff' : '' %></div></div>
+          <form method="post" action="<%= base %>/proposals/<%= p.id %>/agenda"><input type="hidden" name="meeting_id" value="<%= m.id %>"><button class="btn btn-sm btn-outline-dark">Add</button></form>
         </div>
       <% }) %>
       <% if (!open.length) { %><div class="list-group-item text-secondary">No open proposals.</div><% } %>
     </div>
 
     <h2 class="h5">Meeting details</h2>
-    <form method="post" action="/meetings/<%= m.id %>" class="card card-body">
+    <form method="post" action="<%= base %>/meetings/<%= m.id %>" class="card card-body">
       <label class="form-label small" for="title">Title</label>
       <input class="form-control mb-2" id="title" name="title" value="<%= m.title %>">
       <label class="form-label small" for="meeting_at">Meeting time</label>

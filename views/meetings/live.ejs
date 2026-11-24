@@ -27,7 +27,7 @@
   </div>
 </div>
 
-<script src="/socket.io/socket.io.js"></script>
+<script src="<%= base %>/socket.io/socket.io.js"></script>
 <script>
   (() => {
     const MID = <%= m.id %>;
@@ -46,7 +46,7 @@
       for (const k of ['yay', 'nay']) document.getElementById('t-' + k).textContent = adhoc.tally[k];
     }
     async function load() {
-      const st = await (await fetch(`/meetings/${MID}/state`)).json();
+      const st = await (await fetch(hg.url(`/meetings/${MID}/state`))).json();
       slides = st.slides; current = st.current; adhoc = st.adhoc;
       renderSlide(); renderAdhoc();
     }
@@ -60,7 +60,7 @@
       } catch (e) { alert(e.message); }
     }));
 
-    const socket = io();
+    const socket = io({ path: hg.base + '/socket.io' });
     socket.on('connect', () => { socket.emit('join', `meeting:${MID}`); document.getElementById('dot').className = 'text-danger'; load(); });
     socket.on('disconnect', () => { document.getElementById('dot').className = 'text-secondary'; });
     socket.on('slide', ({ index }) => { current = index; renderSlide(); });

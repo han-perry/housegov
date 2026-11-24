@@ -3,16 +3,16 @@
 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3 doc-toolbar">
   <nav aria-label="breadcrumb">
     <ol class="breadcrumb mb-0 small">
-      <li class="breadcrumb-item"><a href="/docs">Policies</a></li>
+      <li class="breadcrumb-item"><a href="<%= base %>/docs">Policies</a></li>
       <% if (doc.category !== doc.title) { %><li class="breadcrumb-item"><%= doc.category %></li><% } %>
       <li class="breadcrumb-item active" aria-current="page"><%= doc.title %></li>
     </ol>
   </nav>
   <div class="d-flex gap-2">
-    <a class="btn btn-sm btn-outline-secondary" href="/docs/<%= doc.slug %>/history">History</a>
+    <a class="btn btn-sm btn-outline-secondary" href="<%= base %>/docs/<%= doc.slug %>/history">History</a>
     <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#embed">Embed</button>
     <% if (user && user.hasPermission(GOVPERMS.PROPOSE) && !rev) { %>
-      <form method="post" action="/docs/<%= doc.slug %>/amend"><button class="btn btn-sm btn-dark">Propose an amendment</button></form>
+      <form method="post" action="<%= base %>/docs/<%= doc.slug %>/amend"><button class="btn btn-sm btn-dark">Propose an amendment</button></form>
     <% } %>
   </div>
 </div>
@@ -20,14 +20,14 @@
 <div class="collapse mb-3" id="embed"><div class="card card-body small">
   Paste this into another website to embed the current version:
   <pre class="mb-1 mt-2 bg-light p-2 rounded"><code>&lt;iframe src="<%= config.baseUrl %>/docs/<%= doc.slug %>/embed" style="width:100%;height:600px;border:0"&gt;&lt;/iframe&gt;</code></pre>
-  Raw markdown: <a href="/docs/<%= doc.slug %>/raw.md"><%= config.baseUrl %>/docs/<%= doc.slug %>/raw.md</a>
+  Raw markdown: <a href="<%= base %>/docs/<%= doc.slug %>/raw.md"><%= config.baseUrl %>/docs/<%= doc.slug %>/raw.md</a>
 </div></div>
 
-<% if (rev) { %><div class="alert alert-warning small">You're viewing an old version (<code><%= rev.slice(0, 7) %></code>). <a href="/docs/<%= doc.slug %>">View current</a></div><% } %>
+<% if (rev) { %><div class="alert alert-warning small">You're viewing an old version (<code><%= rev.slice(0, 7) %></code>). <a href="<%= base %>/docs/<%= doc.slug %>">View current</a></div><% } %>
 
 <% if (amendments.length) { %>
   <div class="alert alert-light border small">Pending amendments:
-    <% amendments.forEach((a, i) => { %><%= i ? ', ' : '' %><a href="/docs/amendments/<%= a.id %>"><%= a.title %></a><% if (a.status === 'conflict') { %> <span class="badge text-bg-warning">conflict</span><% } %><% }) %>
+    <% amendments.forEach((a, i) => { %><%= i ? ', ' : '' %><a href="<%= base %>/docs/amendments/<%= a.id %>"><%= a.title %></a><% if (a.status === 'conflict') { %> <span class="badge text-bg-warning">conflict</span><% } %><% }) %>
   </div>
 <% } %>
 
@@ -38,7 +38,7 @@
       <%- html %>
     </article>
     <% if (lastChange && !rev) { %>
-      <footer class="doc-colophon">Last amended <%= fmtDate(lastChange.date, { dateOnly: true }) %> by <%= lastChange.author %>: <a href="/docs/<%= doc.slug %>/commits/<%= lastChange.sha %>"><%= lastChange.subject %></a> · <a href="/docs/<%= doc.slug %>/history">Full history</a></footer>
+      <footer class="doc-colophon">Last amended <%= fmtDate(lastChange.date, { dateOnly: true }) %> by <%= lastChange.author %>: <a href="<%= base %>/docs/<%= doc.slug %>/commits/<%= lastChange.sha %>"><%= lastChange.subject %></a> · <a href="<%= base %>/docs/<%= doc.slug %>/history">Full history</a></footer>
     <% } %>
   </div>
   <aside class="col-lg-3 d-none d-lg-block">

@@ -22,7 +22,7 @@
       <dt class="col-sm-3">Primary Author</dt><dd class="col-sm-9"><%= p.author %></dd>
       <dt class="col-sm-3">Secondary Authors</dt><dd class="col-sm-9"><%= p.coauthors || 'none' %></dd>
       <dt class="col-sm-3">Submitted</dt><dd class="col-sm-9"><%= fmtDate(p.created_at) %></dd>
-      <% if (p.meeting) { %><dt class="col-sm-3">Meeting</dt><dd class="col-sm-9"><a href="/meetings/<%= p.meeting.id %>"><%= p.meeting.title %></a> — <%= fmtDate(p.meeting.meeting_at, {dateOnly: true}) %></dd><% } %>
+      <% if (p.meeting) { %><dt class="col-sm-3">Meeting</dt><dd class="col-sm-9"><a href="<%= base %>/meetings/<%= p.meeting.id %>"><%= p.meeting.title %></a> — <%= fmtDate(p.meeting.meeting_at, {dateOnly: true}) %></dd><% } %>
       <% if (p.outcome) { %>
         <dt class="col-sm-3">Meeting vote</dt>
         <dd class="col-sm-9">Yay <b><%= p.outcome.yay %></b> · Nay <b><%= p.outcome.nay %></b> (<%= (p.outcome.share * 100).toFixed(1) %>% in favor; <%= p.outcome.required %> needed)
@@ -40,7 +40,7 @@
       <h2 class="h6 mt-3">Attached amendments</h2>
       <ul>
         <% amendments.forEach(a => { %>
-          <li><a href="/docs/amendments/<%= a.amendment_id %>"><%= a.amendment_title %></a> <span class="meta">to <a href="/docs/<%= a.doc_slug %>"><%= a.doc_slug %></a> · <%= a.amendment_status %></span></li>
+          <li><a href="<%= base %>/docs/amendments/<%= a.amendment_id %>"><%= a.amendment_title %></a> <span class="meta">to <a href="<%= base %>/docs/<%= a.doc_slug %>"><%= a.doc_slug %></a> · <%= a.amendment_status %></span></li>
         <% }) %>
       </ul>
     <% } %>
@@ -60,20 +60,20 @@
       <div class="card mb-3"><div class="card-body">
         <h2 class="h6">House Chair tools</h2>
         <% if (p.status === 'open' && upcoming) { %>
-          <form method="post" action="/proposals/<%= p.id %>/agenda" class="mb-2"><button class="btn btn-sm btn-dark w-100">Add to agenda: <%= upcoming.title %></button></form>
+          <form method="post" action="<%= base %>/proposals/<%= p.id %>/agenda" class="mb-2"><button class="btn btn-sm btn-dark w-100">Add to agenda: <%= upcoming.title %></button></form>
         <% } %>
-        <a href="/proposals/<%= p.id %>/edit" class="btn btn-sm btn-outline-secondary w-100 mb-2">Edit summary / official text / funding</a>
+        <a href="<%= base %>/proposals/<%= p.id %>/edit" class="btn btn-sm btn-outline-secondary w-100 mb-2">Edit summary / official text / funding</a>
         <% if (p.status !== 'dismissed' && !p.decision) { %>
-          <form method="post" action="/proposals/<%= p.id %>/dismiss" class="mb-2">
+          <form method="post" action="<%= base %>/proposals/<%= p.id %>/dismiss" class="mb-2">
             <input name="reason" class="form-control form-control-sm mb-1" placeholder="Reason for dismissal" required>
             <button class="btn btn-sm btn-outline-warning w-100">Dismiss (stays logged)</button>
           </form>
         <% } else if (p.status === 'dismissed') { %>
-          <form method="post" action="/proposals/<%= p.id %>/restore" class="mb-2"><button class="btn btn-sm btn-outline-secondary w-100">Restore</button></form>
+          <form method="post" action="<%= base %>/proposals/<%= p.id %>/restore" class="mb-2"><button class="btn btn-sm btn-outline-secondary w-100">Restore</button></form>
         <% } %>
         <details>
           <summary class="small text-danger">Permanently delete…</summary>
-          <form method="post" action="/proposals/<%= p.id %>/delete" class="mt-2">
+          <form method="post" action="<%= base %>/proposals/<%= p.id %>/delete" class="mt-2">
             <div class="small text-secondary mb-1">For offensive content or cleanup. This removes the record entirely. Type <b><%= p.id %></b> to confirm.</div>
             <input name="confirm" class="form-control form-control-sm mb-1" autocomplete="off">
             <button class="btn btn-sm btn-danger w-100">Delete forever</button>

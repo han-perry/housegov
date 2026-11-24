@@ -1,14 +1,14 @@
 <%- include('../partials/head') %>
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h1 class="h3 mb-0">Elections &amp; Votes</h1>
-  <% if (user && user.hasPermission(GOVPERMS.MANAGE)) { %><a class="btn btn-dark" href="/polls/new">New poll</a><% } %>
+  <% if (user && user.hasPermission(GOVPERMS.MANAGE)) { %><a class="btn btn-dark" href="<%= base %>/polls/new">New poll</a><% } %>
 </div>
 <% const groups = [['open', 'Open now'], ['upcoming', 'Upcoming'], ['closed', 'Closed']]; %>
 <% groups.forEach(([key, label]) => { const list = rows.filter(r => r.status === key); if (!list.length) return; %>
   <h2 class="h5 mt-3"><%= label %></h2>
   <div class="list-group">
     <% list.forEach(p => { %>
-      <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" href="/polls/<%= p.id %><%= key === 'closed' ? '/results' : '' %>">
+      <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" href="<%= base %>/polls/<%= p.id %><%= key === 'closed' ? '/results' : '' %>">
         <div>
           <div class="fw-medium"><%= p.title %></div>
           <div class="meta"><%= p.secret ? 'Secret ballot' : 'Public ballot' %> ·

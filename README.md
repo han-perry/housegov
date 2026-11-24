@@ -26,11 +26,41 @@ You're signed in as **perryh with every permission**. Use **/dev** to switch use
 |---|---|---|
 | `DATABASE_URL` | `postgres://housegov:housegov@localhost:5432/housegov_dev` | compose sets the container's |
 | `DATA_DIR` | `./data` (`/data` volume in Docker) | GovDocs git repositories |
-| `BASE_URL` | `http://localhost:3000` | used in emails and QR codes |
+| `BASE_URL` | `http://localhost:3000` | public URL, used in emails and QR codes. **Its path is the sub-path the app is served under** (e.g. `https://example.org/housegov`) |
+| `BASE_PATH` | path of `BASE_URL` | override the sub-path explicitly |
 | `DEV_AUTH` | `1` | `0` disables the dev login and /dev |
 | `SMTP_URL` | unset → outbox table | e.g. `smtp://user:pass@host:587` |
 | `DISCORD_WEBHOOK_URL` | unset | forum-channel webhook; each proposal/poll gets a thread |
 | `SUMMARY_WORD_LIMIT` | `150` | unofficial summary limit |
+
+## Deploying (e.g. a dev server behind nginx)
+
+```sh
+git clone <repo> housegov && cd housegov
+cp .env.example .env        # set BASE_URL, SESSION_SECRET
+docker compose up -d --build
+```
+
+Re-run `docker compose up -d --build` to update. Data lives in the `pgdata` and `govdocs` volumes (back them up). Both containers bind to 127.0.0.1 only; nginx is the public entry.
+
+The app can run under a sub-path. Set `BASE_URL=https://example.org/housegov` and pass the path through **without stripping it**. That means no trailing slash or URI on `proxy_pass`. The `Upgrade` headers are needed for live slides and votes:
+
+```nginx
+location /housegov/ {
+    proxy_pass http://127.0.0.1:3000;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+location = /housegov { return 301 /housegov/; }
+```
+
+Under a sub-path the session cookie is named `housegov.sid` and scoped to that path, so it doesn't collide with other apps on the domain. It's marked `Secure` when `BASE_URL` is https. While `DEV_AUTH=1`, anyone who can reach the site can sign in as anyone. Keep it behind basic auth or a VPN until the membrane login is wired in.
+
+For developers: templates write links as `<%= base %>/…`, browser code uses `hg.url()` / `hg.postJSON()`, and server code uses `res.redirect("/…")` (prefixed automatically) or `config.basePath` / `config.baseUrl`.
 
 ## Stack
 

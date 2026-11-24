@@ -56,14 +56,14 @@
     <div class="d-flex gap-2">
       <button class="btn btn-dark" id="save"><%= poll ? 'Save changes' : 'Create poll' %></button>
       <% if (poll) { %>
-        <a class="btn btn-outline-secondary" href="/polls/<%= poll.id %>">Cancel</a>
+        <a class="btn btn-outline-secondary" href="<%= base %>/polls/<%= poll.id %>">Cancel</a>
       <% } %>
     </div>
     <% if (poll) { %>
       <hr>
       <div class="d-flex gap-2">
-        <form method="post" action="/polls/<%= poll.id %>/close-now" onsubmit="return confirm('Close voting now?')"><button class="btn btn-sm btn-outline-warning">Close voting now</button></form>
-        <form method="post" action="/polls/<%= poll.id %>/delete" onsubmit="return confirm('Delete this poll and all its ballots?')"><button class="btn btn-sm btn-outline-danger">Delete poll</button></form>
+        <form method="post" action="<%= base %>/polls/<%= poll.id %>/close-now" onsubmit="return confirm('Close voting now?')"><button class="btn btn-sm btn-outline-warning">Close voting now</button></form>
+        <form method="post" action="<%= base %>/polls/<%= poll.id %>/delete" onsubmit="return confirm('Delete this poll and all its ballots?')"><button class="btn btn-sm btn-outline-danger">Delete poll</button></form>
       </div>
     <% } %>
   </div>

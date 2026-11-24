@@ -1,7 +1,7 @@
 <%- include('../partials/head') %>
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h1 class="h3 mb-0">House Meetings</h1>
-  <% if (user && user.hasPermission(GOVPERMS.MANAGE)) { %><a class="btn btn-dark" href="/meetings/new">Schedule a meeting</a><% } %>
+  <% if (user && user.hasPermission(GOVPERMS.MANAGE)) { %><a class="btn btn-dark" href="<%= base %>/meetings/new">Schedule a meeting</a><% } %>
 </div>
 
 <% if (upcoming.length) { %>
@@ -9,11 +9,11 @@
   <div class="list-group mb-4">
     <% upcoming.forEach(m => { %>
       <div class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <div><a href="/meetings/<%= m.id %>" class="fw-medium"><%= m.title %></a> <span class="meta">— <%= fmtDate(m.meeting_at) %><%= m.status === 'live' ? ' · LIVE' : '' %></span></div>
+        <div><a href="<%= base %>/meetings/<%= m.id %>" class="fw-medium"><%= m.title %></a> <span class="meta">— <%= fmtDate(m.meeting_at) %><%= m.status === 'live' ? ' · LIVE' : '' %></span></div>
         <div class="btn-group btn-group-sm">
-          <a class="btn btn-outline-secondary" href="/meetings/<%= m.id %>/live">Live view</a>
-          <% if (user && user.hasPermission(GOVPERMS.MANAGE)) { %><a class="btn btn-outline-secondary" href="/meetings/<%= m.id %>/manage">Manage agenda</a><% } %>
-          <% if (user && user.hasPermission([GOVPERMS.PRESENTATION, GOVPERMS.MANAGE])) { %><a class="btn btn-dark" href="/meetings/<%= m.id %>/console">Presenter console</a><% } %>
+          <a class="btn btn-outline-secondary" href="<%= base %>/meetings/<%= m.id %>/live">Live view</a>
+          <% if (user && user.hasPermission(GOVPERMS.MANAGE)) { %><a class="btn btn-outline-secondary" href="<%= base %>/meetings/<%= m.id %>/manage">Manage agenda</a><% } %>
+          <% if (user && user.hasPermission([GOVPERMS.PRESENTATION, GOVPERMS.MANAGE])) { %><a class="btn btn-dark" href="<%= base %>/meetings/<%= m.id %>/console">Presenter console</a><% } %>
         </div>
       </div>
     <% }) %>
@@ -29,7 +29,7 @@
 <% byTerm.forEach(t => { %>
   <h3 class="h6 mt-3 text-uppercase text-secondary"><%= t.term %></h3>
   <ul>
-    <% t.meetings.forEach(m => { %><li><a href="/meetings/<%= m.id %>"><%= m.title %></a> <span class="meta">— <%= fmtDate(m.meeting_at, {dateOnly: true}) %></span></li><% }) %>
+    <% t.meetings.forEach(m => { %><li><a href="<%= base %>/meetings/<%= m.id %>"><%= m.title %></a> <span class="meta">— <%= fmtDate(m.meeting_at, {dateOnly: true}) %></span></li><% }) %>
   </ul>
 <% }) %>
 <%- include('../partials/foot') %>

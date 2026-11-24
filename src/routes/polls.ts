@@ -152,7 +152,7 @@ router.post("/", manage, async (req, res) => {
   }));
   if (id === undefined) return;
   void discord.announce({ threadName: `Vote: ${c.poll.title}`, content: `**${c.poll.title}** is open for voting until ${c.poll.closes!.toLocaleString()}\n${config.baseUrl}/polls/${id}` });
-  res.json({ ok: true, redirect: `/polls/${id}` });
+  res.json({ ok: true, redirect: `${config.basePath}/polls/${id}` });
 });
 
 router.post("/:id", manage, load, async (req, res) => {
@@ -185,7 +185,7 @@ router.post("/:id", manage, load, async (req, res) => {
   }));
   if (!saved) return;
   await broadcastResults(poll.id);
-  res.json({ ok: true, redirect: `/polls/${poll.id}` });
+  res.json({ ok: true, redirect: `${config.basePath}/polls/${poll.id}` });
 });
 
 router.post("/:id/close-now", manage, load, async (req, res) => {

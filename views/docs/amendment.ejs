@@ -4,7 +4,7 @@
 %>
 <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
   <div>
-    <a href="/docs/<%= a.doc_slug %>" class="small">← <%= a.doc_title %></a>
+    <a href="<%= base %>/docs/<%= a.doc_slug %>" class="small">← <%= a.doc_title %></a>
     <h1 class="h4 mt-1 mb-0">Amendment #<%= a.id %>
       <span class="badge text-bg-<%= badge %> align-middle fs-6"><%= a.status %></span>
     </h1>
@@ -12,22 +12,22 @@
   </div>
   <div class="d-flex gap-2 flex-wrap">
     <% if (a.status === 'draft' && user && user.username === a.author && user.hasPermission(GOVPERMS.PROPOSE)) { %>
-      <a class="btn btn-sm btn-dark" href="/proposals/new?amendment=<%= a.id %>">Attach to a new proposal</a>
+      <a class="btn btn-sm btn-dark" href="<%= base %>/proposals/new?amendment=<%= a.id %>">Attach to a new proposal</a>
     <% } %>
     <% if (editable && behind) { %>
-      <form method="post" action="/docs/amendments/<%= a.id %>/rebase"><button class="btn btn-sm btn-outline-secondary" title="The document changed since this draft was started">Update to latest document</button></form>
+      <form method="post" action="<%= base %>/docs/amendments/<%= a.id %>/rebase"><button class="btn btn-sm btn-outline-secondary" title="The document changed since this draft was started">Update to latest document</button></form>
     <% } %>
     <% if (canApply) { %>
-      <form method="post" action="/docs/amendments/<%= a.id %>/apply" onsubmit="return confirm('Apply this approved amendment to the document now?')"><button class="btn btn-sm btn-success">Apply approved amendment</button></form>
+      <form method="post" action="<%= base %>/docs/amendments/<%= a.id %>/apply" onsubmit="return confirm('Apply this approved amendment to the document now?')"><button class="btn btn-sm btn-success">Apply approved amendment</button></form>
     <% } %>
     <% if (editable) { %>
-      <form method="post" action="/docs/amendments/<%= a.id %>/delete" onsubmit="return confirm('Delete this amendment?')"><button class="btn btn-sm btn-outline-danger">Delete</button></form>
+      <form method="post" action="<%= base %>/docs/amendments/<%= a.id %>/delete" onsubmit="return confirm('Delete this amendment?')"><button class="btn btn-sm btn-outline-danger">Delete</button></form>
     <% } %>
   </div>
 </div>
 
-<% if (a.attachedTo) { %><div class="alert alert-light border small">Attached to proposal <a href="/proposals/<%= a.attachedTo.id %>">#<%= a.attachedTo.id %>: <%= a.attachedTo.title %></a><%= a.attachedTo.decision ? ` (${a.attachedTo.decision})` : '' %>.</div><% } %>
-<% if (a.poll) { %><div class="alert alert-light border small">Will be applied if <a href="/polls/<%= a.poll.id %>"><%= a.poll.title %></a> passes.</div><% } %>
+<% if (a.attachedTo) { %><div class="alert alert-light border small">Attached to proposal <a href="<%= base %>/proposals/<%= a.attachedTo.id %>">#<%= a.attachedTo.id %>: <%= a.attachedTo.title %></a><%= a.attachedTo.decision ? ` (${a.attachedTo.decision})` : '' %>.</div><% } %>
+<% if (a.poll) { %><div class="alert alert-light border small">Will be applied if <a href="<%= base %>/polls/<%= a.poll.id %>"><%= a.poll.title %></a> passes.</div><% } %>
 <% if (a.status === 'conflict') { %><div class="alert alert-warning small">The document changed in a way that conflicts with this amendment. In each block, the part between <code>&lt;&lt;&lt;&lt;&lt;&lt;&lt; current</code> and <code>=======</code> is the document as it is now; the part after <code>=======</code> up to <code>&gt;&gt;&gt;&gt;&gt;&gt;&gt; amendment</code> is this amendment's version. Edit the text so it says what the House approved and delete the markers. It saves automatically<%= (a.attachedTo && a.attachedTo.decision === 'APPROVED') || (a.poll && a.poll.finalized) ? ', then press "Apply approved amendment"' : '' %>.</div><% } %>
 <% if (!editable && a.status === 'submitted') { %><div class="alert alert-light border small">This amendment is locked because it's attached to a proposal or vote. Docs managers can still edit it (e.g. after a motion to amend the wording).</div><% } %>
 

@@ -1,12 +1,12 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-base="<%= base %>">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><%= m.title %> · Slides</title>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/vendor/reveal/reveal.css">
-  <link rel="stylesheet" href="/vendor/reveal/theme/white.css">
+  <link rel="stylesheet" href="<%= base %>/vendor/reveal/reveal.css">
+  <link rel="stylesheet" href="<%= base %>/vendor/reveal/theme/white.css">
   <style>
     .reveal { font-family: "IBM Plex Serif", Georgia, serif; font-size: 30px; }
     .reveal h1, .reveal h2, .reveal h3 { font-family: "IBM Plex Sans", sans-serif; text-transform: none; letter-spacing: -0.01em; }
@@ -38,21 +38,22 @@
 </head>
 <body>
   <div class="reveal"><div class="slides" id="slides"></div></div>
-  <div class="qr"><img src="/meetings/<%= m.id %>/qr.svg" alt="QR code for live view">Scan to follow &amp; vote<div class="short-url">or go to <b><%= shortLive %></b></div></div>
+  <div class="qr"><img src="<%= base %>/meetings/<%= m.id %>/qr.svg" alt="QR code for live view">Scan to follow &amp; vote<div class="short-url">or go to <b><%= shortLive %></b></div></div>
   <div class="adhoc" id="adhoc"></div>
   <div class="more" id="more"><span>▼ continues below</span></div>
 
-  <script src="/vendor/reveal/reveal.js"></script>
-  <script src="/socket.io/socket.io.js"></script>
+  <script src="<%= base %>/vendor/reveal/reveal.js"></script>
+  <script src="<%= base %>/socket.io/socket.io.js"></script>
   <script>
     // The projector follows the presenter console. If you have presentation
     // permission, arrow keys here also drive everyone's view.
     const canDrive = <%= !!(user && user.hasPermission([GOVPERMS.PRESENTATION, GOVPERMS.MANAGE])) %>;
     const MID = <%= m.id %>;
+    const BASE = document.documentElement.dataset.base || '';
     let suppress = false;
 
     async function load() {
-      const state = await (await fetch(`/meetings/${MID}/state`)).json();
+      const state = await (await fetch(`${BASE}/meetings/${MID}/state`)).json();
       document.getElementById('slides').innerHTML = state.slides
         .map((s) => `<section data-kind="${s.kind}">${s.html}</section>`).join('');
       return state;
@@ -84,7 +85,7 @@
       const more = sec && sec.scrollHeight - sec.clientHeight - sec.scrollTop > 8;
       document.getElementById('more').style.display = more ? 'block' : 'none';
     }
-    const sendStep = (step) => fetch(`/meetings/${MID}/scroll`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ index: deck.getIndices().h, step }) });
+    const sendStep = (step) => fetch(`${BASE}/meetings/${MID}/scroll`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ index: deck.getIndices().h, step }) });
     let deck;
 
     (async () => {
@@ -103,12 +104,12 @@
       deck.on('slidechanged', (e) => {
         updateMore();
         if (suppress || !canDrive) return;
-        fetch(`/meetings/${MID}/slide`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ index: e.indexh }) });
+        fetch(`${BASE}/meetings/${MID}/slide`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ index: e.indexh }) });
       });
       document.getElementById('slides').addEventListener('scroll', updateMore, true);
       window.addEventListener('resize', updateMore);
 
-      const socket = io();
+      const socket = io({ path: BASE + '/socket.io' });
       socket.on('connect', () => socket.emit('join', `meeting:${MID}`));
       socket.on('slide', ({ index }) => { suppress = true; deck.slide(index); suppress = false; });
       socket.on('agenda', async () => { const i = deck.getIndices().h; await load(); deck.sync(); suppress = true; deck.slide(i); suppress = false; updateMore(); });

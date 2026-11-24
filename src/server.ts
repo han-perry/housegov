@@ -3,7 +3,7 @@ import http from "node:http";
 import express, { type ErrorRequestHandler } from "express";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
-import { config } from "./config";
+import { config, withBase } from "./config";
 import { pool, migrate } from "./db";
 import { attachUser } from "./auth";
 import { GOVPERMS } from "./auth/permissions";
@@ -34,12 +34,31 @@ const sessionMiddleware = session({
   secret: config.sessionSecret,
   resave: false,
   saveUninitialized: false,
-  cookie: { httpOnly: true, sameSite: "lax", maxAge: 30 * 24 * 3600 * 1000 },
+  // Own cookie name + path so other apps behind the same proxy don't collide.
+  name: "housegov.sid",
+  cookie: {
+    httpOnly: true,
+    sameSite: "lax",
+    path: config.basePath || "/",
+    secure: config.baseUrl.startsWith("https://"),
+    maxAge: 30 * 24 * 3600 * 1000,
+  },
 });
 app.use(sessionMiddleware);
 
+// Everything lives on `site`, mounted at the base path ("/" or e.g. "/housegov").
+const site = express.Router();
+
+// Root-relative redirects ("/proposals/1") get the base path added.
+site.use((req, res, next) => {
+  const redirect = res.redirect.bind(res) as (a: number | string, b?: string) => void;
+  res.redirect = ((a: number | string, b?: string) =>
+    typeof a === "number" ? redirect(a, withBase(String(b))) : redirect(withBase(a))) as typeof res.redirect;
+  next();
+});
+
 // Static assets + browser builds of front-end libraries straight from node_modules.
-app.use("/static", express.static(path.join(config.root, "public")));
+site.use("/static", express.static(path.join(config.root, "public")));
 const vendor: Record<string, string> = {
   bootstrap: "bootstrap/dist",
   reveal: "reveal.js/dist",
@@ -48,13 +67,15 @@ const vendor: Record<string, string> = {
   jsdiff: "diff/dist",
 };
 for (const [name, dir] of Object.entries(vendor)) {
-  app.use(`/vendor/${name}`, express.static(path.join(config.root, "node_modules", dir)));
+  site.use(`/vendor/${name}`, express.static(path.join(config.root, "node_modules", dir)));
 }
 
-app.use(attachUser);
-app.use((req, res, next) => {
+site.use(attachUser);
+site.use((req, res, next) => {
   res.locals.GOVPERMS = GOVPERMS;
-  res.locals.path = req.path;
+  res.locals.path = req.path; // relative to the base path
+  res.locals.base = config.basePath;
+  res.locals.url = withBase;
   res.locals.md = renderMd;
   res.locals.mdInline = renderMdInline;
   res.locals.config = config;
@@ -74,15 +95,19 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use("/", home);
-app.use("/proposals", proposalsRouter);
-app.use("/meetings", meetingsRouter);
-app.use("/polls", pollsRouter);
-app.use("/docs", docsRouter);
-app.use("/orgchart", orgchartRouter);
-if (config.devAuth) app.use("/dev", devRouter);
+site.use("/", home);
+site.use("/proposals", proposalsRouter);
+site.use("/meetings", meetingsRouter);
+site.use("/polls", pollsRouter);
+site.use("/docs", docsRouter);
+site.use("/orgchart", orgchartRouter);
+if (config.devAuth) site.use("/dev", devRouter);
 
-app.use((req, res) => res.status(404).render("error", { title: "Not found", message: "That page doesn't exist." }));
+site.use((req, res) => res.status(404).render("error", { title: "Not found", message: "That page doesn't exist." }));
+app.use(config.basePath || "/", site);
+// Outside the base path (only reachable when hitting the app directly).
+if (config.basePath) app.get("/", (req, res) => res.redirect(config.basePath + "/"));
+app.use((req, res) => res.status(404).type("text").send("Not found"));
 const onError: ErrorRequestHandler = (err, req, res, _next) => {
   console.error(err);
   res.status(err.status || 500).render("error", { title: "Something went wrong", message: err.expose ? err.message : "An unexpected error occurred." });

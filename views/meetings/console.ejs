@@ -5,9 +5,9 @@
     <div class="meta"><%= m.title %> · <span id="viewers">–</span> connected</div>
   </div>
   <div class="btn-group btn-group-sm">
-    <a class="btn btn-outline-secondary" href="/meetings/<%= m.id %>/slides" target="_blank">Open projector view ↗</a>
-    <a class="btn btn-outline-secondary" href="/meetings/<%= m.id %>/manage">Edit agenda</a>
-    <form method="post" action="/meetings/<%= m.id %>/adjourn" onsubmit="return confirm('Adjourn the meeting? Tabled proposals go back to the open pool.')"><button class="btn btn-danger btn-sm ms-2">Adjourn</button></form>
+    <a class="btn btn-outline-secondary" href="<%= base %>/meetings/<%= m.id %>/slides" target="_blank">Open projector view ↗</a>
+    <a class="btn btn-outline-secondary" href="<%= base %>/meetings/<%= m.id %>/manage">Edit agenda</a>
+    <form method="post" action="<%= base %>/meetings/<%= m.id %>/adjourn" onsubmit="return confirm('Adjourn the meeting? Tabled proposals go back to the open pool.')"><button class="btn btn-danger btn-sm ms-2">Adjourn</button></form>
   </div>
 </div>
 
@@ -74,7 +74,7 @@
   </div>
 </div>
 
-<script src="/socket.io/socket.io.js"></script>
+<script src="<%= base %>/socket.io/socket.io.js"></script>
 <script>
   (() => {
     const MID = <%= m.id %>;
@@ -94,7 +94,7 @@
         $('decision-buttons').innerHTML = s.decisions.map((d) =>
           `<button class="btn btn-sm ${s.decision === d ? 'btn-dark' : 'btn-outline-dark'}" data-decision="${d}">${d}</button>`).join('');
         $('decision-status').textContent = s.decision ? `Recorded: ${s.decision}` : 'No decision yet.';
-        $('edit-link').href = `/proposals/${s.proposalId}/edit?return=${encodeURIComponent(location.pathname)}`;
+        $('edit-link').href = `${hg.base}/proposals/${s.proposalId}/edit?return=${encodeURIComponent(location.pathname)}`;
         $('vote-tools').classList.toggle('d-none', !s.required);
         $('vote-required').textContent = s.required ? `(${s.required} needed)` : '';
         const o = s.outcome;
@@ -106,7 +106,7 @@
     }
 
     async function load() {
-      const st = await (await fetch(`/meetings/${MID}/state`)).json();
+      const st = await (await fetch(hg.url(`/meetings/${MID}/state`))).json();
       slides = st.slides; current = st.current; adhoc = st.adhoc;
       render(); renderAdhoc();
     }
@@ -182,7 +182,7 @@
     };
     $('adhoc-close').onclick = async () => { if (!adhoc) return; await hg.postJSON(`/meetings/${MID}/adhoc/${adhoc.id}/close`); adhoc = null; renderAdhoc(); };
 
-    const socket = io();
+    const socket = io({ path: hg.base + '/socket.io' });
     socket.on('connect', () => { socket.emit('join', `meeting:${MID}`); load(); });
     socket.on('slide', ({ index }) => { current = index; render(); });
     socket.on('agenda', load);

@@ -20,7 +20,7 @@
   <div class="alert alert-danger"><ul class="mb-0"><% errors.forEach(e => { %><li><%= e %></li><% }) %></ul></div>
 <% } %>
 
-<form method="post" action="/proposals" id="proposal-form" class="card card-body shadow-sm">
+<form method="post" action="<%= base %>/proposals" id="proposal-form" class="card card-body shadow-sm">
   <div class="mb-3">
     <label class="form-label fw-medium">Primary Author</label>
     <div><%= user.username %></div>
@@ -79,12 +79,12 @@
       <% drafts.forEach(d => { %>
         <div class="form-check">
           <input class="form-check-input" type="checkbox" name="amendments" value="<%= d.id %>" id="am-<%= d.id %>" <%= values.amendments.includes(String(d.id)) ? 'checked' : '' %>>
-          <label class="form-check-label" for="am-<%= d.id %>"><a href="/docs/amendments/<%= d.id %>" target="_blank"><%= d.title %></a> <span class="meta">(<%= d.doc_title %>)</span></label>
+          <label class="form-check-label" for="am-<%= d.id %>"><a href="<%= base %>/docs/amendments/<%= d.id %>" target="_blank"><%= d.title %></a> <span class="meta">(<%= d.doc_title %>)</span></label>
         </div>
       <% }) %>
       <div class="form-text">Attached amendments are locked once you submit, and are applied to the document if the House approves this proposal.</div>
     <% } else { %>
-      <div class="form-text">To change the constitution or a policy, open it under <a href="/docs">Policies</a> and click "Propose an amendment". Your draft will show up here.</div>
+      <div class="form-text">To change the constitution or a policy, open it under <a href="<%= base %>/docs">Policies</a> and click "Propose an amendment". Your draft will show up here.</div>
     <% } %>
   </div>
 

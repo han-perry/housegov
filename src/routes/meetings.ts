@@ -198,7 +198,7 @@ router.get("/:id/qr.svg", load, async (req, res) => {
 
 // Projector view: public, follows the console.
 router.get("/:id/slides", load, (req, res) => {
-  const shortLive = `${new URL(config.baseUrl).host}/live`;
+  const shortLive = `${new URL(config.baseUrl).host}${config.basePath}/live`;
   res.render("meetings/slides", { title: M(req).title, m: M(req), liveUrl: `${config.baseUrl}/meetings/${M(req).id}/live`, shortLive });
 });
 

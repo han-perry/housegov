@@ -1,25 +1,25 @@
 <%- include('../partials/head') %>
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h1 class="h3 mb-0">Policy Documents</h1>
-  <% if (user && user.hasPermission(GOVPERMS.DOCS_MANAGE)) { %><a class="btn btn-dark" href="/docs/new">New document</a><% } %>
+  <% if (user && user.hasPermission(GOVPERMS.DOCS_MANAGE)) { %><a class="btn btn-dark" href="<%= base %>/docs/new">New document</a><% } %>
 </div>
 <div class="row g-4">
   <div class="col-lg-7">
     <% byCategory.forEach(([cat, docs]) => { %>
       <h2 class="h6 text-uppercase text-secondary mt-3"><%= cat %></h2>
       <div class="list-group">
-        <% docs.forEach(d => { %><a class="list-group-item list-group-item-action" href="/docs/<%= d.slug %>"><%= d.title %></a><% }) %>
+        <% docs.forEach(d => { %><a class="list-group-item list-group-item-action" href="<%= base %>/docs/<%= d.slug %>"><%= d.title %></a><% }) %>
       </div>
     <% }) %>
   </div>
   <div class="col-lg-5">
     <% if (myDrafts.length) { %>
       <h2 class="h6">My amendment drafts</h2>
-      <ul class="list-unstyled"><% myDrafts.forEach(a => { %><li><a href="/docs/amendments/<%= a.id %>"><%= a.title %></a> <span class="meta"><%= a.doc_slug %> · <%= a.status %></span></li><% }) %></ul>
+      <ul class="list-unstyled"><% myDrafts.forEach(a => { %><li><a href="<%= base %>/docs/amendments/<%= a.id %>"><%= a.title %></a> <span class="meta"><%= a.doc_slug %> · <%= a.status %></span></li><% }) %></ul>
     <% } %>
     <h2 class="h6 mt-3">Pending amendments</h2>
     <ul class="list-unstyled">
-      <% pending.forEach(a => { %><li><a href="/docs/amendments/<%= a.id %>"><%= a.title %></a> <span class="meta"><%= a.doc_title %> · <%= a.status %></span></li><% }) %>
+      <% pending.forEach(a => { %><li><a href="<%= base %>/docs/amendments/<%= a.id %>"><%= a.title %></a> <span class="meta"><%= a.doc_title %> · <%= a.status %></span></li><% }) %>
       <% if (!pending.length) { %><li class="text-secondary small">None.</li><% } %>
     </ul>
   </div>

@@ -1,4 +1,5 @@
 import * as db from "../db";
+import { config } from "../config";
 import { render, escapeHtml as esc } from "./markdown";
 import * as proposals from "./proposals";
 
@@ -70,8 +71,8 @@ export async function buildSlides(meetingId: number): Promise<Slide[]> {
       .filter((a) => a.kind === "amendment")
       .map(
         (a) =>
-          `<li>Amends <a href="/docs/${encodeURIComponent(a.doc_slug)}" target="_blank" rel="noopener"><i>${esc(a.doc_title || a.doc_slug)}</i></a>: ` +
-          `<a href="/docs/amendments/${Number(a.amendment_id)}" target="_blank" rel="noopener">${esc(a.amendment_title)}</a></li>`
+          `<li>Amends <a href="${config.basePath}/docs/${encodeURIComponent(a.doc_slug)}" target="_blank" rel="noopener"><i>${esc(a.doc_title || a.doc_slug)}</i></a>: ` +
+          `<a href="${config.basePath}/docs/amendments/${Number(a.amendment_id)}" target="_blank" rel="noopener">${esc(a.amendment_title)}</a></li>`
       )
       .join("");
     slides.push({

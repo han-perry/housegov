@@ -11,12 +11,12 @@
       </div>
     </div>
     <div class="text-end">
-      <% if (resultsVisible) { %><a class="btn btn-sm btn-outline-secondary" href="/polls/<%= poll.id %>/results">Results &amp; ledger</a><% } %>
-      <% if (user && user.hasPermission(GOVPERMS.MANAGE)) { %><a class="btn btn-sm btn-outline-secondary" href="/polls/<%= poll.id %>/edit">Edit</a><% } %>
+      <% if (resultsVisible) { %><a class="btn btn-sm btn-outline-secondary" href="<%= base %>/polls/<%= poll.id %>/results">Results &amp; ledger</a><% } %>
+      <% if (user && user.hasPermission(GOVPERMS.MANAGE)) { %><a class="btn btn-sm btn-outline-secondary" href="<%= base %>/polls/<%= poll.id %>/edit">Edit</a><% } %>
     </div>
   </div>
   <% if (poll.description) { %><div class="content-serif mt-3"><%- md(poll.description) %></div><% } %>
-  <% if (poll.amendment) { %><div class="alert alert-light border small">If this passes, <a href="/docs/amendments/<%= poll.amendment.id %>"><%= poll.amendment.title %></a> will be applied to <a href="/docs/<%= poll.amendment.doc_slug %>"><%= poll.amendment.doc_slug %></a>.</div><% } %>
+  <% if (poll.amendment) { %><div class="alert alert-light border small">If this passes, <a href="<%= base %>/docs/amendments/<%= poll.amendment.id %>"><%= poll.amendment.title %></a> will be applied to <a href="<%= base %>/docs/<%= poll.amendment.doc_slug %>"><%= poll.amendment.doc_slug %></a>.</div><% } %>
 
   <% if (poll.status !== 'open') { %>
     <div class="alert alert-secondary mt-3"><%= poll.status === 'upcoming' ? 'Voting has not opened yet.' : 'Voting has closed.' %></div>
