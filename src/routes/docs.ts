@@ -75,15 +75,16 @@ function passed(a: Row): boolean {
 router.get("/amendments/:id", async (req, res) => {
   const a = await loadAmendment(req);
   if (!a) return res.status(404).render("error", { title: "Not found", message: "No such amendment." });
-  const base = await govdocs.read(a.doc_slug, a.base_commit);
+  // Not called `base`: that template local is the app's URL prefix.
+  const baseText = await govdocs.read(a.doc_slug, a.base_commit);
   res.render("docs/amendment", {
     title: `Amendment #${a.id}`,
     a,
-    base,
+    baseText,
     editable: canEdit(a, req.user),
     canApply: passed(a) && !!req.user?.hasPermission(GOVPERMS.DOCS_MANAGE),
     behind: (await govdocs.head(a.doc_slug)) !== a.base_commit,
-    patch: a.patch || govdocs.unifiedDiff(base, a.content, `${a.doc_slug}.md`),
+    patch: a.patch || govdocs.unifiedDiff(baseText, a.content, `${a.doc_slug}.md`),
   });
 });
 

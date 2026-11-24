@@ -76,6 +76,13 @@ site.use((req, res, next) => {
   res.locals.path = req.path; // relative to the base path
   res.locals.base = config.basePath;
   res.locals.url = withBase;
+  // Every template uses `base`/`url` for links; a route passing its own value
+  // under those names would silently break every link on the page.
+  const render = res.render.bind(res) as (view: string, opts?: object, cb?: never) => void;
+  res.render = ((view: string, opts?: Record<string, unknown>, cb?: never) => {
+    if (opts && ("base" in opts || "url" in opts)) throw new Error(`render("${view}"): "base" and "url" are reserved template locals`);
+    return render(view, opts, cb);
+  }) as typeof res.render;
   res.locals.md = renderMd;
   res.locals.mdInline = renderMdInline;
   res.locals.config = config;
