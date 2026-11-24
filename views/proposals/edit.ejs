@@ -1,9 +1,9 @@
 <%- include('../partials/head', { useEditor: true }) %>
-<h1 class="h4">Edit proposal #<%= p.id %>: <%= p.title %></h1>
+<h1 class="h4"><%= can.text ? 'Edit proposal' : 'Edit funding for proposal' %> #<%= p.id %>: <%= p.title %></h1>
 <p class="text-secondary small">Changes are logged in the proposal's history. The original submitted official text is kept.</p>
 <form method="post" action="<%= base %>/proposals/<%= p.id %>/edit" class="card card-body">
   <input type="hidden" name="return" value="<%= returnTo %>">
-  <% if (p.funding) { %>
+  <% if (can.funding) { %>
     <div class="row g-3 mb-3">
       <div class="col-sm-auto" style="min-width: 14rem">
         <label class="form-label fw-medium" for="final_amount">Funding amount</label>
@@ -15,6 +15,7 @@
       </div>
     </div>
   <% } %>
+  <% if (can.text) { %>
   <div class="mb-3">
     <label class="form-label fw-medium">Unofficial summary</label>
     <textarea name="summary" hidden><%= p.summary %></textarea>
@@ -27,8 +28,12 @@
   <label class="form-label fw-medium">Official full text</label>
   <textarea name="final_text" hidden><%= p.final_text %></textarea>
   <div data-md-editor="final_text" data-height="420px"></div>
+  <% } else if (p.funding) { %>
+    <p class="small text-secondary mb-0">The funding was requested as $<%= p.funding.amount %>. You can change the amount and the account; the summary and official text are edited by the House Chair.</p>
+  <% } %>
   <div class="mt-3"><button class="btn btn-dark"><%- icon('check-lg') %> Save changes</button> <a href="<%= url(returnTo) %>" class="btn btn-link">Cancel</a></div>
 </form>
+<% if (can.text) { %>
 <script>
   (() => {
     const limit = <%= wordLimit %>;
@@ -43,4 +48,5 @@
     update();
   })();
 </script>
+<% } %>
 <%- include('../partials/foot', { useEditor: true }) %>

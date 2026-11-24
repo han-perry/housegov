@@ -56,6 +56,12 @@
   </div>
 
   <div class="col-lg-4">
+    <% if (can.funding && !canManage) { %>
+      <div class="card mb-3"><div class="card-body">
+        <h2 class="h6">Funding</h2>
+        <a href="<%= base %>/proposals/<%= p.id %>/edit" class="btn btn-sm btn-outline-secondary w-100"><%- icon('cash-coin') %> Edit amount / account</a>
+      </div></div>
+    <% } %>
     <% if (canManage) { %>
       <div class="card mb-3"><div class="card-body">
         <h2 class="h6">House Chair tools</h2>

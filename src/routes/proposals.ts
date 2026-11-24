@@ -2,7 +2,7 @@ import { Router, type Request } from "express";
 import { config } from "../config";
 import * as db from "../db";
 import { requirePerm } from "../auth";
-import { GOVPERMS } from "../auth/permissions";
+import { GOVPERMS, type User } from "../auth/permissions";
 import * as proposals from "../services/proposals";
 import * as meetings from "../services/meetings";
 import * as govdocs from "../services/govdocs";
@@ -16,6 +16,18 @@ import { MONEY_RE, intParam, str, safeReturn, back, wantsJson } from "./util";
 const router = Router();
 const manage = requirePerm(GOVPERMS.MANAGE);
 const manageOrPresent = requirePerm([GOVPERMS.MANAGE, GOVPERMS.PRESENTATION]);
+const anyEditor = requirePerm([GOVPERMS.MANAGE, GOVPERMS.PRESENTATION, GOVPERMS.FUNDING]);
+
+/**
+ * What a user may change on a proposal: the summary/official text (House
+ * Chair or presenter), and the funding amount/account (House Chair or
+ * govtracker.funding, e.g. the treasurer).
+ */
+function editAccess(user: User | null | undefined, p: { funding?: unknown }) {
+  const text = !!user?.hasPermission([GOVPERMS.MANAGE, GOVPERMS.PRESENTATION]);
+  const funding = !!p.funding && !!user?.hasPermission([GOVPERMS.MANAGE, GOVPERMS.FUNDING]);
+  return { text, funding, any: text || funding };
+}
 
 // ---- List / search (public, paginated) -------------------------------------
 router.get("/", async (req, res) => {
@@ -178,6 +190,7 @@ router.get("/:id", async (req, res) => {
   res.render("proposals/view", {
     title: `Proposal #${p.id}`,
     p,
+    can: editAccess(req.user, p),
     TYPES: proposals.TYPES,
     procedureHtml: proposals.procedureHtml(p),
     upcoming: await meetings.upcoming(),
@@ -185,23 +198,29 @@ router.get("/:id", async (req, res) => {
 });
 
 // ---- House Chair tools -----------------------------------------------------
-router.get("/:id/edit", manageOrPresent, async (req, res) => {
+router.get("/:id/edit", anyEditor, async (req, res) => {
   const p = await proposals.get(intParam(req.params.id));
   if (!p) return res.redirect("/proposals");
+  const can = editAccess(req.user, p);
+  if (!can.any) return res.status(403).render("error", { title: "Nothing to edit", message: "This proposal has no funding request to edit." });
   res.render("proposals/edit", {
-    title: `Edit Proposal #${p.id}`,
+    title: can.text ? `Edit Proposal #${p.id}` : `Edit funding: Proposal #${p.id}`,
     p,
+    can,
     wordLimit: config.proposals.summaryWordLimit,
     returnTo: safeReturn(req.query.return, `/proposals/${p.id}`),
   });
 });
 
-router.post("/:id/edit", manageOrPresent, async (req, res) => {
+router.post("/:id/edit", anyEditor, async (req, res) => {
   const p = await proposals.get(intParam(req.params.id));
   if (!p) return res.redirect("/proposals");
   const user = req.user!;
-  const text = str(req.body.final_text);
-  const summary = str(req.body.summary);
+  const can = editAccess(user, p);
+  if (!can.any) return res.status(403).render("error", { title: "Not allowed", message: "You can't edit this proposal." });
+  // Fields you aren't allowed to change are ignored, so one form serves every role.
+  const text = can.text ? str(req.body.final_text) : "";
+  const summary = can.text ? str(req.body.summary) : "";
   const editUrl = `/proposals/${p.id}/edit?return=${encodeURIComponent(safeReturn(req.body.return, `/proposals/${p.id}`))}`;
   if (summary && summary !== p.summary) {
     const words = wordCount(summary);
@@ -211,22 +230,23 @@ router.post("/:id/edit", manageOrPresent, async (req, res) => {
     }
   }
   const amount = str(req.body.final_amount).replace(/^\$/, "");
+  const funding = can.funding ? p.funding : null;
   const account = proposals.normalizeAccount(req.body.account_number);
-  if (p.funding && account && !proposals.ACCOUNT_RE.test(account)) {
+  if (funding && account && !proposals.ACCOUNT_RE.test(account)) {
     req.flash("danger", "The account number can only contain letters, digits, spaces, dots, dashes and slashes (or leave it blank for a new account).");
     return res.redirect(editUrl);
   }
-  if (p.funding && amount && Number(amount) !== Number(p.funding.final_amount)) {
+  if (funding && amount && Number(amount) !== Number(funding.final_amount)) {
     if (!MONEY_RE.test(amount)) {
       req.flash("danger", "Funding amount does not look like a monetary amount");
       return res.redirect(editUrl);
     }
-    await db.run("UPDATE proposal_attachments SET final_amount=$1 WHERE id=$2", [amount, p.funding.id]);
-    await proposals.log(p.id, user.username, `Funding amended from $${p.funding.final_amount} to $${amount}`);
+    await db.run("UPDATE proposal_attachments SET final_amount=$1 WHERE id=$2", [amount, funding.id]);
+    await proposals.log(p.id, user.username, `Funding amended from $${funding.final_amount} to $${amount}`);
   }
-  if (p.funding && "account_number" in req.body && account !== (p.funding.account_number ?? null)) {
-    await db.run("UPDATE proposal_attachments SET account_number=$1 WHERE id=$2", [account, p.funding.id]);
-    await proposals.log(p.id, user.username, `Funding account changed from ${proposals.accountPhrase(p.funding.account_number)} to ${proposals.accountPhrase(account)}`);
+  if (funding && "account_number" in req.body && account !== (funding.account_number ?? null)) {
+    await db.run("UPDATE proposal_attachments SET account_number=$1 WHERE id=$2", [account, funding.id]);
+    await proposals.log(p.id, user.username, `Funding account changed from ${proposals.accountPhrase(funding.account_number)} to ${proposals.accountPhrase(account)}`);
   }
   if (summary && summary !== p.summary) {
     await db.run("UPDATE proposals SET summary=$1 WHERE id=$2", [summary, p.id]);

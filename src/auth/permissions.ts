@@ -6,6 +6,8 @@ export enum GOVPERMS {
   MANAGE = "govtracker.manage",
   PRESENTATION = "govtracker.presentation",
   DOCS_MANAGE = "govtracker.docs.manage",
+  // Not in the spec yet: edit a proposal's funding amount / account (e.g. the treasurer).
+  FUNDING = "govtracker.funding",
   // Not in the spec yet: who is eligible to vote in polls / ad hoc votes.
   VOTE = "govtracker.vote",
 }
